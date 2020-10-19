@@ -1,6 +1,7 @@
 
 #include "http_parser.h"
 #include <iostream>
+#include <cstring>
 #include <uvw.hpp>
 
 int on_message_begin(http_parser*)
