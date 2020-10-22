@@ -17,6 +17,6 @@ format:
 	clang-format -i options.cpp main.cpp
 
 test_compressed_upload:
-	ws curl --compress_request -F foo=@test/data/MAINTAINERS.md http://jeanserge.com:8080
+	ws curl --compress_request -F foo=@test/data/MAINTAINERS.md http://jeanserge.com:8080/
 
 .PHONY: build

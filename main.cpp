@@ -222,12 +222,20 @@ int main(int argc, char* argv[])
         client->on<uvw::DataEvent>([request, parser, &settings](const uvw::DataEvent& event,
                                                                 uvw::TCPHandle& client) {
             int nparsed = http_parser_execute(parser, &settings, event.data.get(), event.length);
+
             if (nparsed != event.length)
             {
+                std::stringstream ss;
+                ss << "HTTP Parsing Error: "
+                   << "description: "
+                   << http_errno_description(HTTP_PARSER_ERRNO(parser))
+                   << " error name "
+                   << http_errno_name(HTTP_PARSER_ERRNO(parser));
+
                 Response response;
                 response.statusCode = 400;
                 response.description = "KO";
-                response.body = "HTTP Parsing Error";
+                response.body = ss.str();
 
                 writeResponse(response, client);
                 return;
