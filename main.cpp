@@ -1,16 +1,15 @@
 
 #include "http_parser.h"
-#include <iostream>
+#include "options.h"
 #include <cstring>
-#include <uvw.hpp>
-#include <zlib.h>
-#include <spdlog/spdlog.h>
-
+#include <functional>
+#include <iostream>
 #include <map>
 #include <memory>
-#include <functional>
-
-#include "options.h"
+#include <spdlog/spdlog.h>
+#include <sstream>
+#include <uvw.hpp>
+#include <zlib.h>
 
 
 bool gzipDecompress(const std::string& in, std::string& out)
@@ -68,6 +67,14 @@ struct Request
     bool messageComplete = false;
 };
 
+struct Response
+{
+    std::map<std::string, std::string> headers;
+    int statusCode = 200;
+    std::string description;
+    std::string body;
+};
+
 int on_message_begin(http_parser*)
 {
     return 0;
@@ -84,7 +91,7 @@ int on_headers_complete(http_parser* parser)
 {
     Request* request = reinterpret_cast<Request*>(parser->data);
 
-    for (const auto & it : request->headers)
+    for (const auto& it : request->headers)
     {
         spdlog::debug("{}: {}", it.first, it.second);
     }
@@ -142,7 +149,31 @@ int on_body(http_parser* parser, const char* at, const size_t length)
     return 0;
 }
 
-int main(int argc, char * argv[])
+std::string writeResponse(const Response& response)
+{
+    // Write the response to the socket
+    std::stringstream ss;
+    ss << "HTTP/1.1 ";
+    ss << response.statusCode;
+    ss << " ";
+    ss << response.description;
+    ss << "\r\n";
+
+    // Write headers
+    ss << "Content-Length: " << response.body.size() << "\r\n";
+    ss << "Server: uvw-server"
+       << "\r\n";
+    for (auto&& it : response.headers)
+    {
+        ss << it.first << ": " << it.second << "\r\n";
+    }
+    ss << "\r\n";
+    ss << response.body;
+
+    return ss.str();
+}
+
+int main(int argc, char* argv[])
 {
     Args args;
 
@@ -181,31 +212,35 @@ int main(int argc, char * argv[])
 
         parser->data = client->data().get();
 
-        client->on<uvw::DataEvent>(
-            [request, parser, &settings](const uvw::DataEvent& event, uvw::TCPHandle& client) {
-                int nparsed = http_parser_execute(parser,
-                                                  &settings,
-                                                  event.data.get(),
-                                                  event.length);
-                if (nparsed != event.length)
-                {
-                    // FIXME: return 400 here
-                    std::cerr << "PARSING ERROR" << std::endl;
-                    return;
-                }
+        client->on<uvw::DataEvent>([request, parser, &settings](const uvw::DataEvent& event,
+                                                                uvw::TCPHandle& client) {
+            int nparsed = http_parser_execute(parser, &settings, event.data.get(), event.length);
+            if (nparsed != event.length)
+            {
+                // FIXME: return 400 here
+                spdlog::error("HTTP Parsing Error");
+                return;
+            }
 
-                // Write response
-                if (request->messageComplete)
-                {
-                    std::cout << "Message complete" << std::endl;
-                    std::cout << "Message length: " << request->body.size()
-                              << std::endl;
+            // Write response
+            if (request->messageComplete)
+            {
+                std::cout << "Message complete" << std::endl;
+                std::cout << "Message length: " << request->body.size() << std::endl;
 
-                    auto dataWrite = std::unique_ptr<char[]>(new char[]{ 'h', 'e', 'l', 'l', 'o' });
-                    client.write(std::move(dataWrite), 5);
-                    client.close();
-                }
-            });
+                Response response;
+                response.description = "OK";
+                response.body = "OK";
+
+                auto str = writeResponse(response);
+                spdlog::debug("Server response: {}", str);
+                auto buff = std::make_unique<char[]>(str.length() + 1);
+                std::copy_n(str.c_str(), str.length() + 1, buff.get());
+
+                client.write(std::move(buff), str.length() + 1);
+                client.close();
+            }
+        });
 
         srv.accept(*client);
         client->read();

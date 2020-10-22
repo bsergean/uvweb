@@ -1,4 +1,5 @@
 #include "options.h"
+
 #include <cxxopts.hpp>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
@@ -6,48 +7,48 @@
 void setupLogging(const Args& args)
 {
     // We want all logs to go to stderr
-    auto logger = spdlog::stderr_color_mt( "stderr" );
-    spdlog::set_default_logger( logger );
+    auto logger = spdlog::stderr_color_mt("stderr");
+    spdlog::set_default_logger(logger);
 
     // Default level is warning.
-    spdlog::set_level( spdlog::level::warn );
+    spdlog::set_level(spdlog::level::warn);
 
-    if ( args.traceLevel )
+    if (args.traceLevel)
     {
-        spdlog::set_level( spdlog::level::trace );
+        spdlog::set_level(spdlog::level::trace);
     }
-    if ( args.debugLevel )
+    if (args.debugLevel)
     {
-        spdlog::set_level( spdlog::level::debug );
+        spdlog::set_level(spdlog::level::debug);
     }
-    if ( args.infoLevel )
+    if (args.infoLevel)
     {
-        spdlog::set_level( spdlog::level::info );
+        spdlog::set_level(spdlog::level::info);
     }
-    if ( args.warningLevel )
+    if (args.warningLevel)
     {
-        spdlog::set_level( spdlog::level::warn );
+        spdlog::set_level(spdlog::level::warn);
     }
-    if ( args.errorLevel )
+    if (args.errorLevel)
     {
-        spdlog::set_level( spdlog::level::err );
+        spdlog::set_level(spdlog::level::err);
     }
-    if ( args.criticalLevel )
+    if (args.criticalLevel)
     {
-        spdlog::set_level( spdlog::level::critical );
+        spdlog::set_level(spdlog::level::critical);
     }
-    if ( args.quietLevel )
+    if (args.quietLevel)
     {
-        spdlog::set_level( spdlog::level::off );
+        spdlog::set_level(spdlog::level::off);
     }
 }
 
-bool parseOptions(int argc, char * argv[], Args& args)
+bool parseOptions(int argc, char* argv[], Args& args)
 {
     //
     // Option parsing
     //
-    cxxopts::Options options( "uvw-server", "A toy HTTP server" );
+    cxxopts::Options options("uvw-server", "A toy HTTP server");
 
     // clang-format off
     options.add_options()
@@ -68,9 +69,9 @@ bool parseOptions(int argc, char * argv[], Args& args)
 
     try
     {
-        auto result = options.parse( argc, argv );
+        auto result = options.parse(argc, argv);
 
-        if ( result.count( "help" ) )
+        if (result.count("help"))
         {
             std::cout << options.help() << std::endl;
             return false;
@@ -87,7 +88,7 @@ bool parseOptions(int argc, char * argv[], Args& args)
         args.criticalLevel = result["critical"].as<bool>();
         args.quietLevel = result["quiet"].as<bool>();
     }
-    catch ( const cxxopts::OptionException & e )
+    catch (const cxxopts::OptionException& e)
     {
         std::cerr << e.what() << std::endl;
         return false;
