@@ -28,8 +28,6 @@ FetchContent_GetProperties(uvw)
 if(NOT uvw_POPULATED)
   FetchContent_Populate(uvw)
   add_subdirectory(${uvw_SOURCE_DIR} ${uvw_BINARY_DIR})
-
-  set_target_properties(uvw PROPERTIES BUILD_UVW_LIBS 1)
 endif()
 
 add_executable(uvw-server 
