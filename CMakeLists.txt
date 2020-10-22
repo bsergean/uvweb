@@ -8,6 +8,23 @@ set (CMAKE_CXX_STANDARD 17)
 #
 include(FetchContent)
 
+# spdlog
+include(FetchContent)
+FetchContent_Declare(spdlog
+    GIT_REPOSITORY "https://github.com/gabime/spdlog"
+    GIT_TAG "v1.8.0")
+
+FetchContent_MakeAvailable(spdlog)
+
+# cxxopts
+include(FetchContent)
+FetchContent_Declare(cxxopts
+    GIT_REPOSITORY "https://github.com/jarro2783/cxxopts"
+    GIT_TAG "v2.1.2")
+
+FetchContent_MakeAvailable(cxxopts)
+
+# libuv
 FetchContent_Declare(
     libuv
     GIT_REPOSITORY https://github.com/libuv/libuv.git
@@ -24,6 +41,7 @@ if(NOT libuv_POPULATED)
     set_target_properties(uv_a PROPERTIES EXCLUDE_FROM_ALL 1)
 endif()
 
+# uvw
 FetchContent_Declare(uvw
     GIT_REPOSITORY "https://github.com/skypjack/uvw"
     GIT_TAG "v2.8.0_libuv_v1.40"
@@ -35,11 +53,17 @@ if(NOT uvw_POPULATED)
   add_subdirectory(${uvw_SOURCE_DIR} ${uvw_BINARY_DIR})
 endif()
 
+
 #
 # uvw-http-server
 #
 add_executable(uvw-server 
   main.cpp 
+  options.cpp
   http_parser.c)
 
-target_link_libraries(uvw-server uv uvw)
+find_package(ZLIB REQUIRED)
+include_directories(${ZLIB_INCLUDE_DIRS})
+add_definitions(-DSPDLOG_COMPILED_LIB=1)
+
+target_link_libraries(uvw-server cxxopts spdlog uv uvw ${ZLIB_LIBRARIES})
