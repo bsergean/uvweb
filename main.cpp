@@ -149,7 +149,8 @@ int on_body(http_parser* parser, const char* at, const size_t length)
     return 0;
 }
 
-std::string writeResponse(const Response& response)
+void writeResponse(const Response& response,
+                   uvw::TCPHandle& client)
 {
     // Write the response to the socket
     std::stringstream ss;
@@ -170,7 +171,13 @@ std::string writeResponse(const Response& response)
     ss << "\r\n";
     ss << response.body;
 
-    return ss.str();
+    auto str = ss.str();
+    spdlog::debug("Server response: {}", str);
+    auto buff = std::make_unique<char[]>(str.length() + 1);
+    std::copy_n(str.c_str(), str.length() + 1, buff.get());
+
+    client.write(std::move(buff), str.length() + 1);
+    client.close();
 }
 
 int main(int argc, char* argv[])
@@ -217,28 +224,24 @@ int main(int argc, char* argv[])
             int nparsed = http_parser_execute(parser, &settings, event.data.get(), event.length);
             if (nparsed != event.length)
             {
-                // FIXME: return 400 here
-                spdlog::error("HTTP Parsing Error");
+                Response response;
+                response.statusCode = 400;
+                response.description = "KO";
+                response.body = "HTTP Parsing Error";
+
+                writeResponse(response, client);
                 return;
             }
 
             // Write response
             if (request->messageComplete)
             {
-                std::cout << "Message complete" << std::endl;
-                std::cout << "Message length: " << request->body.size() << std::endl;
-
                 Response response;
+                response.statusCode = 200;
                 response.description = "OK";
                 response.body = "OK";
 
-                auto str = writeResponse(response);
-                spdlog::debug("Server response: {}", str);
-                auto buff = std::make_unique<char[]>(str.length() + 1);
-                std::copy_n(str.c_str(), str.length() + 1, buff.get());
-
-                client.write(std::move(buff), str.length() + 1);
-                client.close();
+                writeResponse(response, client);
             }
         });
 
