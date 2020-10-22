@@ -53,7 +53,7 @@ bool parseOptions(int argc, char* argv[], Args& args)
     // clang-format off
     options.add_options()
         ("host", "Host to bind to", cxxopts::value<std::string>()->default_value( "localhost"))
-        ( "port", "Request timeout", cxxopts::value<int>()->default_value("8080"))
+        ( "port", "Port", cxxopts::value<int>()->default_value("8080"))
         ( "h,help", "Print usage" )
 
         // Log levels

@@ -249,7 +249,7 @@ int main(int argc, char* argv[])
         client->read();
     });
 
-    tcp->bind("127.0.0.1", 8600); // FIXME: bind to 0.0.0.0
+    tcp->bind(args.host, args.port);
     tcp->listen();
 
     loop->run();
