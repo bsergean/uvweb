@@ -60,6 +60,7 @@ endif()
 add_executable(uvw-server 
   main.cpp 
   options.cpp
+  gzip.cpp
   http_parser.c)
 
 find_package(ZLIB REQUIRED)
