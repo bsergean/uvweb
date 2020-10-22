@@ -3,7 +3,9 @@ project (uvw-server)
 
 set (CMAKE_CXX_STANDARD 17)
 
-include(FetchContent)
+#
+# Dependencies
+#
 include(FetchContent)
 
 FetchContent_Declare(
@@ -17,6 +19,9 @@ FetchContent_GetProperties(libuv)
 if(NOT libuv_POPULATED)
     FetchContent_Populate(libuv)
     add_subdirectory(${libuv_SOURCE_DIR} ${libuv_BINARY_DIR})
+
+    add_library(uv::uv-static ALIAS uv_a)
+    set_target_properties(uv_a PROPERTIES EXCLUDE_FROM_ALL 1)
 endif()
 
 FetchContent_Declare(uvw
@@ -30,6 +35,9 @@ if(NOT uvw_POPULATED)
   add_subdirectory(${uvw_SOURCE_DIR} ${uvw_BINARY_DIR})
 endif()
 
+#
+# uvw-http-server
+#
 add_executable(uvw-server 
   main.cpp 
   http_parser.c)
