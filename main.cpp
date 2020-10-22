@@ -103,6 +103,20 @@ int on_message_complete(http_parser* parser)
 {
     Request* request = reinterpret_cast<Request*>(parser->data);
     request->messageComplete = true;
+
+    if (request->headers["Content-Encoding"] == "gzip")
+    {
+        spdlog::debug("decoding gzipped body");
+
+        std::string decompressedBody;
+        if (!gzipDecompress(request->body, decompressedBody))
+        {
+            return 1;
+        }
+        request->body = decompressedBody;
+    }
+
+    spdlog::debug("body value {}", request->body);
     return 0;
 }
 
@@ -130,22 +144,9 @@ int on_body(http_parser* parser, const char* at, const size_t length)
 {
     Request* request = reinterpret_cast<Request*>(parser->data);
     auto body = std::string(at, length);
+    request->body += body;
 
-    if (request->headers["Content-Encoding"] == "gzip")
-    {
-        spdlog::debug("decoding gzipped body");
-
-        std::string decompressedBody;
-        if (!gzipDecompress(body, decompressedBody))
-        {
-            return 1;
-        }
-        body = decompressedBody;
-    }
-
-    spdlog::debug("body value {}", body);
-
-    request->body = body;
+    spdlog::debug("on body {}", body);
     return 0;
 }
 
