@@ -8,11 +8,20 @@ set (CMAKE_CXX_STANDARD 17)
 #
 include(FetchContent)
 
+# deflate
+include(FetchContent)
+FetchContent_Declare(deflate
+    GIT_REPOSITORY "git@github.com:bsergean/libdeflate.git"
+    GIT_TAG "master")
+
+FetchContent_MakeAvailable(deflate)
+
 # spdlog
 include(FetchContent)
 FetchContent_Declare(spdlog
     GIT_REPOSITORY "https://github.com/gabime/spdlog"
-    GIT_TAG "v1.8.0")
+    GIT_TAG "v1.8.0"
+    GIT_SHALLOW 1)
 
 FetchContent_MakeAvailable(spdlog)
 
@@ -20,7 +29,8 @@ FetchContent_MakeAvailable(spdlog)
 include(FetchContent)
 FetchContent_Declare(cxxopts
     GIT_REPOSITORY "https://github.com/jarro2783/cxxopts"
-    GIT_TAG "v2.1.2")
+    GIT_TAG "v2.1.2"
+    GIT_SHALLOW 1)
 
 FetchContent_MakeAvailable(cxxopts)
 
@@ -63,8 +73,6 @@ add_executable(uvw-server
   gzip.cpp
   http_parser.c)
 
-find_package(ZLIB REQUIRED)
-include_directories(${ZLIB_INCLUDE_DIRS})
 add_definitions(-DSPDLOG_COMPILED_LIB=1)
 
-target_link_libraries(uvw-server cxxopts spdlog uv uvw ${ZLIB_LIBRARIES})
+target_link_libraries(uvw-server cxxopts spdlog uv uvw deflate)

@@ -1,8 +1,7 @@
 
+#include "gzip.h"
 #include "http_parser.h"
 #include "options.h"
-#include "gzip.h"
-
 #include <cstring>
 #include <iostream>
 #include <map>
@@ -105,8 +104,7 @@ int on_body(http_parser* parser, const char* at, const size_t length)
     return 0;
 }
 
-void writeResponse(const Response& response,
-                   uvw::TCPHandle& client)
+void writeResponse(const Response& response, uvw::TCPHandle& client)
 {
     // Write the response to the socket
     std::stringstream ss;
@@ -183,10 +181,8 @@ int main(int argc, char* argv[])
             {
                 std::stringstream ss;
                 ss << "HTTP Parsing Error: "
-                   << "description: "
-                   << http_errno_description(HTTP_PARSER_ERRNO(parser))
-                   << " error name "
-                   << http_errno_name(HTTP_PARSER_ERRNO(parser));
+                   << "description: " << http_errno_description(HTTP_PARSER_ERRNO(parser))
+                   << " error name " << http_errno_name(HTTP_PARSER_ERRNO(parser));
 
                 Response response;
                 response.statusCode = 400;
