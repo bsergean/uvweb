@@ -30,6 +30,7 @@ namespace uvweb
     {
         Request* request = reinterpret_cast<Request*>(parser->data);
 
+        spdlog::debug("All headers parsed");
         for (const auto& it : request->headers)
         {
             spdlog::debug("{}: {}", it.first, it.second);
@@ -112,10 +113,10 @@ namespace uvweb
 
         auto str = ss.str();
         spdlog::debug("Server response: {}", str);
-        auto buff = std::make_unique<char[]>(str.length() + 1);
-        std::copy_n(str.c_str(), str.length() + 1, buff.get());
+        auto buff = std::make_unique<char[]>(str.length());
+        std::copy_n(str.c_str(), str.length(), buff.get());
 
-        client.write(std::move(buff), str.length() + 1);
+        client.write(std::move(buff), str.length());
         client.close();
     }
 
@@ -170,7 +171,9 @@ namespace uvweb
                     std::stringstream ss;
                     ss << "HTTP Parsing Error: "
                        << "description: " << http_errno_description(HTTP_PARSER_ERRNO(parser))
-                       << " error name " << http_errno_name(HTTP_PARSER_ERRNO(parser));
+                       << " error name " << http_errno_name(HTTP_PARSER_ERRNO(parser))
+                       << " nparsed " << nparsed
+                       << " event.length " << event.length;
 
                     Response response;
                     response.statusCode = 400;

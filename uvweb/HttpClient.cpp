@@ -106,22 +106,34 @@ namespace uvweb
         {
             ss << "Content-Length: " << request.body.size() << "\r\n";
         }
+
+        // FIXME: only write those default headers if no user supplied are presents
+        ss << "Host: "
+           << request.host
+           << "\r\n";
+        ss << "Accept: */*"
+           << "\r\n";
         ss << "User-Agent: uvweb-client"
            << "\r\n";
+
         for (auto&& it : request.headers)
         {
             ss << it.first << ": " << it.second << "\r\n";
         }
         ss << "\r\n";
-        ss << request.body;
-        ss << "\r\n";
+
+        if (request.method != "GET" && request.method != "HEAD")
+        {
+            ss << request.body;
+            ss << "\r\n";
+        }
 
         auto str = ss.str();
         spdlog::debug("Client request: {}", str);
-        auto buff = std::make_unique<char[]>(str.length() + 1);
-        std::copy_n(str.c_str(), str.length() + 1, buff.get());
+        auto buff = std::make_unique<char[]>(str.length());
+        std::copy_n(str.c_str(), str.length(), buff.get());
 
-        client.write(std::move(buff), str.length() + 1);
+        client.write(std::move(buff), str.length());
     }
 
     HttpClient::HttpClient()
@@ -167,6 +179,7 @@ namespace uvweb
         Request request;
         request.method = "GET";
         request.path = path;
+        request.host = host;
 
         // On Error
         client->on<uvw::ErrorEvent>([&host, &port](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle &) { 
@@ -188,7 +201,9 @@ namespace uvweb
                 std::stringstream ss;
                 ss << "HTTP Parsing Error: "
                    << "description: " << http_errno_description(HTTP_PARSER_ERRNO(parser))
-                   << " error name " << http_errno_name(HTTP_PARSER_ERRNO(parser));
+                   << " error name " << http_errno_name(HTTP_PARSER_ERRNO(parser))
+                   << " nparsed " << nparsed
+                   << " event.length " << event.length;
                 spdlog::error(ss.str());
                 return;
             }

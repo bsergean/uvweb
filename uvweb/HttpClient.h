@@ -13,6 +13,7 @@ namespace uvweb
         std::string path;
         std::string body;
         std::string method;
+        std::string host;
         bool messageComplete = false;
     };
 
