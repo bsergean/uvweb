@@ -1,11 +1,14 @@
 all: build
 
-build:
+full_build:
 	(cd build && \
 		cmake -GNinja -DCMAKE_BUILD_TYPE=Debug \
 			-DCXXOPTS_BUILD_EXAMPLES=OFF \
 			-DBUILD_TESTING=OFF \
 			-DLIBUV_BUILD_TESTS=OFF .. && ninja)
+
+build:
+	(cd build && ninja)
 
 setup_dir:
 	rm -rf build

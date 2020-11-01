@@ -1,7 +1,13 @@
 #
-# uvw-http-server
+# server
 #
-add_executable(uvweb-cli)
-target_sources(uvweb-cli PRIVATE options.cpp main.cpp)
+add_executable(uvweb-server)
+target_sources(uvweb-server PRIVATE ServerOptions.cpp UvwebServer.cpp)
+target_link_libraries(uvweb-server uvweb cxxopts)
 
-target_link_libraries(uvweb-cli uvweb cxxopts)
+#
+# client
+#
+add_executable(uvweb-client)
+target_sources(uvweb-client PRIVATE ClientOptions.cpp UvwebClient.cpp)
+target_link_libraries(uvweb-client uvweb cxxopts)

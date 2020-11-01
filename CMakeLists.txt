@@ -72,7 +72,8 @@ add_library(uvweb::uvweb ALIAS uvweb)
 target_sources(uvweb PRIVATE 
   uvweb/gzip.cpp
   uvweb/http_parser.c 
-  uvweb/HttpServer.cpp)
+  uvweb/HttpServer.cpp
+  uvweb/HttpClient.cpp)
 
 target_compile_definitions(uvweb PRIVATE SPDLOG_COMPILED_LIB=1)
 target_link_libraries(uvweb spdlog uv uvw deflate)
@@ -82,7 +83,8 @@ target_include_directories(uvweb PUBLIC
   $<INSTALL_INTERFACE:include/uvweb>
 )
 
-set_target_properties(uvweb PROPERTIES PUBLIC_HEADER uvweb/HttpServer.h)
+set_target_properties(uvweb PROPERTIES PUBLIC_HEADER
+  "uvweb/HttpServer.h uvweb/HttpClient.h")
 
 # install(TARGETS uvweb
 #         EXPORT uvweb

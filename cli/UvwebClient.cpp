@@ -1,6 +1,6 @@
 
-#include "options.h"
-#include <uvweb/HttpServer.h>
+#include "ClientOptions.h"
+#include <uvweb/HttpClient.h>
 
 int main(int argc, char* argv[])
 {
@@ -11,8 +11,8 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    uvweb::HttpServer httpServer(args.host, args.port);
-    httpServer.run();
+    uvweb::HttpClient httpClient;
+    httpClient.fetch(args.url);
 
     return 0;
 }

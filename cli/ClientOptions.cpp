@@ -1,4 +1,4 @@
-#include "options.h"
+#include "ClientOptions.h"
 
 #include <cxxopts.hpp>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -48,12 +48,11 @@ bool parseOptions(int argc, char* argv[], Args& args)
     //
     // Option parsing
     //
-    cxxopts::Options options("uvw-server", "A toy HTTP server");
+    cxxopts::Options options("uvweb-client", "A toy HTTP client");
 
     // clang-format off
     options.add_options()
-        ("host", "Host to bind to", cxxopts::value<std::string>()->default_value( "127.0.0.1"))
-        ( "port", "Port", cxxopts::value<int>()->default_value("8080"))
+        ("url", "Url", cxxopts::value<std::string>()->default_value( ""))
         ( "h,help", "Print usage" )
 
         // Log levels
@@ -77,8 +76,7 @@ bool parseOptions(int argc, char* argv[], Args& args)
             return false;
         }
 
-        args.host = result["host"].as<std::string>();
-        args.port = result["port"].as<int>();
+        args.url = result["url"].as<std::string>();
 
         args.traceLevel = result["trace"].as<bool>();
         args.debugLevel = result["debug"].as<bool>();
