@@ -72,6 +72,7 @@ add_library(uvweb::uvweb ALIAS uvweb)
 target_sources(uvweb PRIVATE 
   uvweb/gzip.cpp
   uvweb/http_parser.c 
+  uvweb/UrlParser.cpp
   uvweb/HttpServer.cpp
   uvweb/HttpClient.cpp)
 

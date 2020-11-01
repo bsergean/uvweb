@@ -194,6 +194,8 @@ namespace uvweb
             client->read();
         });
 
+        spdlog::info("Listening on {}:{}", _host, _port);
+
         tcp->bind(_host, _port);
         tcp->listen();
 

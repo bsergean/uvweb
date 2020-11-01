@@ -76,6 +76,12 @@ bool parseOptions(int argc, char* argv[], Args& args)
             return false;
         }
 
+        if (result.count("url") == 0)
+        {
+            std::cout << "Missing url" << std::endl;
+            return false;
+        }
+
         args.url = result["url"].as<std::string>();
 
         args.traceLevel = result["trace"].as<bool>();
