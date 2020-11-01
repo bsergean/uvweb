@@ -99,7 +99,7 @@ namespace uvweb
         ss << " ";
         ss << request.path;
         ss << " ";
-        ss << " HTTP/1.1\r\n";
+        ss << "HTTP/1.1\r\n";
 
         // Write headers
         if (request.method != "GET" && request.method != "HEAD")
@@ -169,8 +169,9 @@ namespace uvweb
         request.path = path;
 
         // On Error
-        client->on<uvw::ErrorEvent>([](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle &) { 
-            spdlog::error("Connection error: {}", errorEvent.name());
+        client->on<uvw::ErrorEvent>([&host, &port](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle &) { 
+            spdlog::error("Connection to {} on port {} failed : {}",
+                          host, port, errorEvent.name());
         });
 
         // On connect
