@@ -2,10 +2,10 @@ all: build
 
 build:
 	(cd build && \
-		cmake -DCMAKE_BUILD_TYPE=Debug \
+		cmake -GNinja -DCMAKE_BUILD_TYPE=Debug \
 			-DCXXOPTS_BUILD_EXAMPLES=OFF \
 			-DBUILD_TESTING=OFF \
-			-DLIBUV_BUILD_TESTS=OFF .. && make)
+			-DLIBUV_BUILD_TESTS=OFF .. && ninja)
 
 setup_dir:
 	rm -rf build
