@@ -52,7 +52,7 @@ bool parseOptions(int argc, char* argv[], Args& args)
 
     // clang-format off
     options.add_options()
-        ("host", "Host to bind to", cxxopts::value<std::string>()->default_value( "localhost"))
+        ("host", "Host to bind to", cxxopts::value<std::string>()->default_value( "127.0.0.1"))
         ( "port", "Port", cxxopts::value<int>()->default_value("8080"))
         ( "h,help", "Print usage" )
 

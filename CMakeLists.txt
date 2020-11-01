@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.14)
-project (uvw-server)
+project (uvweb)
 
 set (CMAKE_CXX_STANDARD 17)
 
@@ -63,16 +63,37 @@ if(NOT uvw_POPULATED)
   add_subdirectory(${uvw_SOURCE_DIR} ${uvw_BINARY_DIR})
 endif()
 
-
 #
 # uvw-http-server
 #
-add_executable(uvw-server 
-  main.cpp 
-  options.cpp
-  gzip.cpp
-  http_parser.c)
+add_library(uvweb)
+add_library(uvweb::uvweb ALIAS uvweb)
 
-add_definitions(-DSPDLOG_COMPILED_LIB=1)
+target_sources(uvweb PRIVATE 
+  uvweb/gzip.cpp
+  uvweb/http_parser.c 
+  uvweb/HttpServer.cpp)
 
-target_link_libraries(uvw-server cxxopts spdlog uv uvw deflate)
+target_compile_definitions(uvweb PRIVATE SPDLOG_COMPILED_LIB=1)
+target_link_libraries(uvweb spdlog uv uvw deflate)
+
+target_include_directories(uvweb PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/>
+  $<INSTALL_INTERFACE:include/uvweb>
+)
+
+set_target_properties(uvweb PROPERTIES PUBLIC_HEADER uvweb/HttpServer.h)
+
+# install(TARGETS uvweb
+#         EXPORT uvweb
+#         ARCHIVE DESTINATION lib
+#         PUBLIC_HEADER DESTINATION include/
+# )
+# 
+# # This is required to work with FetchContent
+# install(EXPORT uvweb
+#         FILE uvweb-config.cmake
+#         NAMESPACE uvweb::
+#         DESTINATION lib/cmake/uvweb)
+
+add_subdirectory(cli)
