@@ -160,6 +160,9 @@ namespace uvweb
 
             client->on<uvw::DataEvent>([request, parser, &settings](const uvw::DataEvent& event,
                                                                     uvw::TCPHandle& client) {
+                auto data = std::string(event.data.get(), event.length);
+                spdlog::trace("DataEvent: {}", data);
+
                 int nparsed = http_parser_execute(parser, &settings, event.data.get(), event.length);
 
                 if (nparsed != event.length)

@@ -12,7 +12,10 @@ int main(int argc, char* argv[])
     }
 
     uvweb::HttpClient httpClient;
-    httpClient.fetch(args.url);
+    for (const auto& url : args.urls)
+    {
+        httpClient.fetch(url);
+    }
 
     return 0;
 }

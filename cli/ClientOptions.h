@@ -1,10 +1,11 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 struct Args
 {
-    std::string url;
+    std::vector<std::string> urls;
 
     // Log levels
     bool traceLevel = false;

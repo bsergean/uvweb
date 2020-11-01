@@ -52,7 +52,7 @@ bool parseOptions(int argc, char* argv[], Args& args)
 
     // clang-format off
     options.add_options()
-        ("url", "Url", cxxopts::value<std::string>()->default_value( ""))
+        ( "u,url", "Param url", cxxopts::value<std::vector<std::string>>() )
         ( "h,help", "Print usage" )
 
         // Log levels
@@ -65,6 +65,7 @@ bool parseOptions(int argc, char* argv[], Args& args)
         ( "quiet", "No log", cxxopts::value<bool>()->default_value( "false" ) )
     ;
     // clang-format on
+    options.parse_positional( {"url"} );
 
     try
     {
@@ -78,12 +79,11 @@ bool parseOptions(int argc, char* argv[], Args& args)
 
         if (result.count("url") == 0)
         {
-            std::cout << "Missing url" << std::endl;
+            std::cerr << "Error: one or multiple urls are required." << std::endl;
             return false;
         }
 
-        args.url = result["url"].as<std::string>();
-
+        args.urls = result["url"].as<std::vector<std::string>>();
         args.traceLevel = result["trace"].as<bool>();
         args.debugLevel = result["debug"].as<bool>();
         args.infoLevel = result["info"].as<bool>();
