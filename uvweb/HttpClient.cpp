@@ -13,7 +13,6 @@
 #include <sstream>
 #include <uvw.hpp>
 
-
 namespace uvweb
 {
     int on_message_begin(http_parser*)
@@ -155,6 +154,17 @@ namespace uvweb
         }
 
         auto loop = uvw::Loop::getDefault();
+
+        auto dnsRequest = loop->resource<uvw::GetAddrInfoReq>();
+        auto [dnsLookupSuccess, addr] = dnsRequest->addrInfoSync(host, std::to_string(port));  // FIXME: do DNS asynchronously
+        if (!dnsLookupSuccess)
+        {
+            std::stringstream ss;
+            ss << "Could not resolve host: '" << host << "'";
+            spdlog::error(ss.str());
+            return;
+        }
+
         auto client = loop->resource<uvw::TCPHandle>();
 
         // Register http parser callbacks
@@ -214,13 +224,10 @@ namespace uvweb
                 spdlog::info("Message complete, status code: {}", response->statusCode);
                 client.close();
             }
-            else
-            {
-                client.read();
-            }
         });
 
-        client->connect(host, port);
+        client->connect(*addr->ai_addr);
+
         client->read();
         loop->run();
     }

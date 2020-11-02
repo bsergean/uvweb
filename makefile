@@ -17,7 +17,7 @@ setup_dir:
 clean_build: setup_dir build
 
 format:
-	clang-format -i options.cpp main.cpp
+	clang-format -i uvweb/*.cpp uvweb/*.cpp cli/*.cpp cli/*.h
 
 test_compressed_upload:
 	ws curl --compress_request -F foo=@test/data/MAINTAINERS.md http://jeanserge.com:8080/
