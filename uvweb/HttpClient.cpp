@@ -112,6 +112,8 @@ namespace uvweb
            << "\r\n";
         ss << "Accept: */*"
            << "\r\n";
+        ss << "Accept-Encoding: gzip"
+           << "\r\n";
         ss << "User-Agent: uvweb-client"
            << "\r\n";
 
