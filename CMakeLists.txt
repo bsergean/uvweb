@@ -74,7 +74,8 @@ target_sources(uvweb PRIVATE
   uvweb/http_parser.c 
   uvweb/UrlParser.cpp
   uvweb/HttpServer.cpp
-  uvweb/HttpClient.cpp)
+  uvweb/HttpClient.cpp
+  uvweb/WebSocketClient.cpp)
 
 target_compile_definitions(uvweb PRIVATE SPDLOG_COMPILED_LIB=1)
 target_link_libraries(uvweb spdlog uv uvw deflate)
