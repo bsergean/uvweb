@@ -172,14 +172,17 @@ namespace uvweb
 
         // On Error
         mClient->on<uvw::ErrorEvent>([&host, &port](const uvw::ErrorEvent& errorEvent,
-                                                   uvw::TCPHandle&) {
+                                                    uvw::TCPHandle&) {
             spdlog::error("Connection to {} on port {} failed : {}", host, port, errorEvent.name());
         });
 
         // On connect
         mClient->once<uvw::ConnectEvent>(
             [this](const uvw::ConnectEvent&, uvw::TCPHandle&) {
-                writeHandshakeRequest();
+                if (!writeHandshakeRequest())
+                {
+                    spdlog::error("Error sending handshake");
+                }
             });
 
         mClient->on<uvw::DataEvent>([this, response, callback](
@@ -225,7 +228,7 @@ namespace uvweb
         mClient->read();
     }
 
-    void WebSocketClient::writeHandshakeRequest()
+    bool WebSocketClient::writeHandshakeRequest()
     {
         // Write the request to the socket
         std::stringstream ss;
@@ -258,14 +261,28 @@ namespace uvweb
         }
         ss << "\r\n";
 
-        auto str = ss.str();
-        spdlog::debug("Client request: {}", str);
+        return sendOnSocket(ss.str());
+    }
+
+    bool WebSocketClient::sendOnSocket(const std::string& str)
+    {
+        spdlog::debug("sendOnSocket {} bytes", str.size());
         auto buff = std::make_unique<char[]>(str.length());
         std::copy_n(str.c_str(), str.length(), buff.get());
 
         mClient->write(std::move(buff), str.length());
+        return true;
     }
 
+    bool WebSocketClient::sendOnSocket(const std::vector<uint8_t>& vec)
+    {
+        spdlog::debug("sendOnSocket {} bytes", vec.size());
+        auto buff = std::make_unique<char[]>(vec.size());
+        std::copy_n(&vec.front(), vec.size(), buff.get());
+
+        mClient->write(std::move(buff), vec.size());
+        return true;
+    }
 
     bool WebSocketClient::send(const std::string& data, bool binary)
     {
@@ -305,15 +322,13 @@ namespace uvweb
         auto message_begin = message.cbegin();
         auto message_end = message.cend();
 
-        _txbuf.reserve(wireSize);
-
         bool success = true;
         const bool compress = false; // FIXME not supported yet
 
         // Common case for most message. No fragmentation required.
         if (wireSize < kChunkSize)
         {
-            success = sendFragment(type, true, message_begin, message_end, compress);
+            success = prepareFragment(type, true, message_begin, message_end, compress);
         }
         else
         {
@@ -349,7 +364,7 @@ namespace uvweb
                 }
 
                 // Send message
-                if (!sendFragment(opcodeType, fin, begin, end, compress))
+                if (!prepareFragment(opcodeType, fin, begin, end, compress))
                 {
                     return false;
                 }
@@ -361,11 +376,11 @@ namespace uvweb
         return true;
     }
 
-    bool WebSocketClient::sendFragment(wsheader_type::opcode_type type,
-                                       bool fin,
-                                       std::string::const_iterator message_begin,
-                                       std::string::const_iterator message_end,
-                                       bool compress)
+    bool WebSocketClient::prepareFragment(wsheader_type::opcode_type type,
+                                          bool fin,
+                                          std::string::const_iterator message_begin,
+                                          std::string::const_iterator message_end,
+                                          bool compress)
     {
         uint64_t message_size = static_cast<uint64_t>(message_end - message_begin);
 
@@ -442,60 +457,31 @@ namespace uvweb
             }
         }
 
-        // _txbuf will keep growing until it can be transmitted over the socket:
-        appendToSendBuffer(header, message_begin, message_end, message_size, masking_key);
-
-        // Now actually send this data
-        return sendOnSocket();
+        return sendFragment(header, message_begin, message_end, message_size, masking_key);
     }
 
-    void WebSocketClient::appendToSendBuffer(const std::vector<uint8_t>& header,
-                                             std::string::const_iterator begin,
-                                             std::string::const_iterator end,
-                                             uint64_t message_size,
-                                             uint8_t masking_key[4])
+    bool WebSocketClient::sendFragment(const std::vector<uint8_t>& header,
+                                       std::string::const_iterator begin,
+                                       std::string::const_iterator end,
+                                       uint64_t message_size,
+                                       uint8_t masking_key[4])
     {
-        _txbuf.insert(_txbuf.end(), header.begin(), header.end());
-        _txbuf.insert(_txbuf.end(), begin, end);
+        // Contains all messages that are waiting to be sent
+        std::vector<uint8_t> txbuf;
+
+        txbuf.insert(txbuf.end(), header.begin(), header.end());
+        txbuf.insert(txbuf.end(), begin, end);
 
         if (_useMask)
         {
             for (size_t i = 0; i != (size_t) message_size; ++i)
             {
-                *(_txbuf.end() - (size_t) message_size + i) ^= masking_key[i & 0x3];
+                *(txbuf.end() - (size_t) message_size + i) ^= masking_key[i & 0x3];
             }
         }
-    }
 
-    bool WebSocketClient::sendOnSocket()
-    {
-#if 0
-        while (_txbuf.size())
-        {
-            ssize_t ret = 0;
-            {
-                ret = _socket->send((char*) &_txbuf[0], _txbuf.size());
-            }
-
-            if (ret < 0 && Socket::isWaitNeeded())
-            {
-                break;
-            }
-            else if (ret <= 0)
-            {
-                closeSocket();
-                setReadyState(ReadyState::Closed);
-                return false;
-            }
-            else
-            {
-                _txbuf.erase(_txbuf.begin(), _txbuf.begin() + ret);
-            }
-        }
-#endif
-        spdlog::debug("sendOnSocket");
-
-        return true;
+        // Now actually send this data
+        return sendOnSocket(txbuf);
     }
 
     unsigned WebSocketClient::getRandomUnsigned()

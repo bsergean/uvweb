@@ -94,24 +94,25 @@ namespace uvweb
             uint8_t masking_key[4];
         };
 
-        void writeHandshakeRequest();
+        bool writeHandshakeRequest();
 
         bool sendData(wsheader_type::opcode_type type,
                       const std::string& message);
 
-        bool sendFragment(wsheader_type::opcode_type type,
-                          bool fin,
-                          std::string::const_iterator message_begin,
-                          std::string::const_iterator message_end,
-                          bool compress = false); // compress not implemented now
+        bool prepareFragment(wsheader_type::opcode_type type,
+                             bool fin,
+                             std::string::const_iterator message_begin,
+                             std::string::const_iterator message_end,
+                             bool compress = false); // compress not implemented now
 
-        void appendToSendBuffer(const std::vector<uint8_t>& header,
-                                std::string::const_iterator begin,
-                                std::string::const_iterator end,
-                                uint64_t message_size,
-                                uint8_t masking_key[4]);
+        bool sendFragment(const std::vector<uint8_t>& header,
+                          std::string::const_iterator begin,
+                          std::string::const_iterator end,
+                          uint64_t message_size,
+                          uint8_t masking_key[4]);
 
-        bool sendOnSocket();
+        bool sendOnSocket(const std::string& str);
+        bool sendOnSocket(const std::vector<uint8_t>& vec);
 
         unsigned getRandomUnsigned();
 
@@ -125,9 +126,6 @@ namespace uvweb
         http_parser_settings mSettings;
 
         Request mRequest;
-
-        // Contains all messages that are waiting to be sent
-        std::vector<uint8_t> _txbuf;
 
         // Fragments are 32K long
         static constexpr size_t kChunkSize = 1 << 15;
