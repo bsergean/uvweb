@@ -178,8 +178,8 @@ namespace uvweb
 
         // On connect
         mClient->once<uvw::ConnectEvent>(
-            [this](const uvw::ConnectEvent&, uvw::TCPHandle& client) {
-                writeHandshakeRequest(client);
+            [this](const uvw::ConnectEvent&, uvw::TCPHandle&) {
+                writeHandshakeRequest();
             });
 
         mClient->on<uvw::DataEvent>([this, response, callback](
@@ -225,7 +225,7 @@ namespace uvweb
         mClient->read();
     }
 
-    void WebSocketClient::writeHandshakeRequest(uvw::TCPHandle& client)
+    void WebSocketClient::writeHandshakeRequest()
     {
         // Write the request to the socket
         std::stringstream ss;
@@ -263,7 +263,7 @@ namespace uvweb
         auto buff = std::make_unique<char[]>(str.length());
         std::copy_n(str.c_str(), str.length(), buff.get());
 
-        client.write(std::move(buff), str.length());
+        mClient->write(std::move(buff), str.length());
     }
 
 

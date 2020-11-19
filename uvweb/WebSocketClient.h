@@ -94,7 +94,7 @@ namespace uvweb
             uint8_t masking_key[4];
         };
 
-        void writeHandshakeRequest(uvw::TCPHandle& client);
+        void writeHandshakeRequest();
 
         bool sendData(wsheader_type::opcode_type type,
                       const std::string& message);
