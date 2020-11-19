@@ -6,6 +6,7 @@
 
 #include <string>
 #include <map>
+#include <vector>
 #include <functional>
 
 namespace uvweb
@@ -68,6 +69,65 @@ namespace uvweb
                    const std::string& reason = WebSocketCloseConstants::kNormalClosureMessage);
 
     private:
-        bool sendMessage(const std::string& data, SendMessageKind sendMessageKind);
+        struct wsheader_type
+        {
+            unsigned header_size;
+            bool fin;
+            bool rsv1;
+            bool rsv2;
+            bool rsv3;
+            bool mask;
+            enum opcode_type
+            {
+                CONTINUATION = 0x0,
+                TEXT_FRAME = 0x1,
+                BINARY_FRAME = 0x2,
+                CLOSE = 8,
+                PING = 9,
+                PONG = 0xa,
+            } opcode;
+            int N0;
+            uint64_t N;
+            uint8_t masking_key[4];
+        };
+
+        // Contains all messages that are waiting to be sent
+        std::vector<uint8_t> _txbuf;
+
+        // Fragments are 32K long
+        static constexpr size_t kChunkSize = 1 << 15;
+
+        // Hold the state of the connection (OPEN, CLOSED, etc...)
+        ReadyState _readyState;
+
+        std::string _closeReason;
+        uint16_t _closeCode;
+        size_t _closeWireSize;
+        bool _closeRemote;
+
+        // Tells whether we should mask the data we send.
+        // client should mask but server should not
+        bool _useMask;
+
+        bool sendData(wsheader_type::opcode_type type,
+                      const std::string& message);
+
+        bool sendFragment(wsheader_type::opcode_type type,
+                          bool fin,
+                          std::string::const_iterator message_begin,
+                          std::string::const_iterator message_end,
+                          bool compress = false); // compress not implemented now
+
+        void appendToSendBuffer(const std::vector<uint8_t>& header,
+                                std::string::const_iterator begin,
+                                std::string::const_iterator end,
+                                uint64_t message_size,
+                                uint8_t masking_key[4]);
+
+        bool sendOnSocket();
+
+        unsigned getRandomUnsigned();
+
+        void setReadyState(ReadyState readyState);
     };
 }

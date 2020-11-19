@@ -2,6 +2,7 @@
 #include "WsClientOptions.h"
 #include <iostream>
 #include <uvweb/WebSocketClient.h>
+#include <uvw.hpp>
 
 int main(int argc, char* argv[])
 {
@@ -21,9 +22,15 @@ int main(int argc, char* argv[])
         else if (msg->type == uvweb::WebSocketMessageType::Open)
         {
             std::cout << "Connection established" << std::endl;
-            webSocketClient.sendText("Hello world");
+            if (!webSocketClient.sendText("Hello world"))
+            {
+                std::cerr << "Error sending text" << std::endl;
+            }
         }
     });
+
+    auto loop = uvw::Loop::getDefault();
+    loop->run();
 
     return 0;
 }

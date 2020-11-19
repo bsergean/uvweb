@@ -14,6 +14,7 @@
 #include <random>
 #include <spdlog/spdlog.h>
 #include <sstream>
+#include <chrono>
 #include <uvw.hpp>
 
 namespace uvweb
@@ -156,7 +157,12 @@ namespace uvweb
         client.write(std::move(buff), str.length());
     }
 
+    constexpr size_t WebSocketClient::kChunkSize;
+
     WebSocketClient::WebSocketClient()
+        : _useMask(true)
+        , _readyState(ReadyState::Closed)
+        , _closeCode(WebSocketCloseConstants::kInternalErrorCode)
     {
         ;
     }
@@ -225,9 +231,10 @@ namespace uvweb
                 writeHandshakeRequest(request, client);
             });
 
-        client->on<uvw::DataEvent>([response, parser, &settings, callback](
-                                       const uvw::DataEvent& event, uvw::TCPHandle& client) {
-            int nparsed = http_parser_execute(parser, &settings, event.data.get(), event.length);
+        client->on<uvw::DataEvent>([this, response, parser, &settings, callback](
+                                    const uvw::DataEvent& event, uvw::TCPHandle& client) {
+            int nparsed = http_parser_execute(parser, &settings,
+                                              event.data.get(), event.length);
 
             if (nparsed != event.length)
             {
@@ -247,6 +254,8 @@ namespace uvweb
 
                 // FIXME: missing validation of WebSocket Key header
 
+                setReadyState(ReadyState::Open);
+
                 callback(std::make_unique<WebSocketMessage>(
                     WebSocketMessageType::Open,
                     "",
@@ -264,7 +273,6 @@ namespace uvweb
         client->connect(*addr->ai_addr);
 
         client->read();
-        loop->run();
     }
 
     bool WebSocketClient::send(const std::string& data, bool binary)
@@ -274,7 +282,7 @@ namespace uvweb
 
     bool WebSocketClient::sendBinary(const std::string& text)
     {
-        return sendMessage(text, SendMessageKind::Binary);
+        return sendData(wsheader_type::BINARY_FRAME, text);
     }
 
     bool WebSocketClient::sendText(const std::string& text)
@@ -285,17 +293,229 @@ namespace uvweb
                   WebSocketCloseConstants::kInvalidFramePayloadDataMessage);
             return false;
         }
-        return sendMessage(text, SendMessageKind::Text);
-    }
-
-    bool WebSocketClient::sendMessage(const std::string& data, SendMessageKind sendMessageKind)
-    {
-        // FIXME
-        return false;
+        return sendData(wsheader_type::TEXT_FRAME, text);
     }
 
     void WebSocketClient::close(uint16_t code, const std::string& reason)
     {
         // FIXME no-op
+    }
+
+    bool WebSocketClient::sendData(wsheader_type::opcode_type type,
+                                   const std::string& message)
+    {
+        if (_readyState != ReadyState::Open && _readyState != ReadyState::Closing)
+        {
+            return false;
+        }
+
+        size_t wireSize = message.size();
+        auto message_begin = message.cbegin();
+        auto message_end = message.cend();
+
+        _txbuf.reserve(wireSize);
+
+        bool success = true;
+        const bool compress = false; // FIXME not supported yet
+
+        // Common case for most message. No fragmentation required.
+        if (wireSize < kChunkSize)
+        {
+            success = sendFragment(type, true, message_begin, message_end, compress);
+        }
+        else
+        {
+            //
+            // Large messages need to be fragmented
+            //
+            // Rules:
+            // First message needs to specify a proper type (BINARY or TEXT)
+            // Intermediary and last messages need to be of type CONTINUATION
+            // Last message must set the fin byte.
+            //
+            auto steps = wireSize / kChunkSize;
+
+            std::string::const_iterator begin = message_begin;
+            std::string::const_iterator end = message_end;
+
+            for (uint64_t i = 0; i < steps; ++i)
+            {
+                bool firstStep = i == 0;
+                bool lastStep = (i + 1) == steps;
+                bool fin = lastStep;
+
+                end = begin + kChunkSize;
+                if (lastStep)
+                {
+                    end = message_end;
+                }
+
+                auto opcodeType = type;
+                if (!firstStep)
+                {
+                    opcodeType = wsheader_type::CONTINUATION;
+                }
+
+                // Send message
+                if (!sendFragment(opcodeType, fin, begin, end, compress))
+                {
+                    return false;
+                }
+
+                begin += kChunkSize;
+            }
+        }
+
+        return true;
+    }
+
+    bool WebSocketClient::sendFragment(wsheader_type::opcode_type type,
+                                       bool fin,
+                                       std::string::const_iterator message_begin,
+                                       std::string::const_iterator message_end,
+                                       bool compress)
+    {
+        uint64_t message_size = static_cast<uint64_t>(message_end - message_begin);
+
+        unsigned x = getRandomUnsigned();
+        uint8_t masking_key[4] = {};
+        masking_key[0] = (x >> 24);
+        masking_key[1] = (x >> 16) & 0xff;
+        masking_key[2] = (x >> 8) & 0xff;
+        masking_key[3] = (x) &0xff;
+
+        std::vector<uint8_t> header;
+        header.assign(2 + (message_size >= 126 ? 2 : 0) + (message_size >= 65536 ? 6 : 0) +
+                          (_useMask ? 4 : 0),
+                      0);
+        header[0] = type;
+
+        // The fin bit indicate that this is the last fragment. Fin is French for end.
+        if (fin)
+        {
+            header[0] |= 0x80;
+        }
+
+        // The rsv1 bit indicate that the frame is compressed
+        // continuation opcodes should not set it. Autobahn 12.2.10 and others 12.X
+        if (compress && type != wsheader_type::CONTINUATION)
+        {
+            header[0] |= 0x40;
+        }
+
+        if (message_size < 126)
+        {
+            header[1] = (message_size & 0xff) | (_useMask ? 0x80 : 0);
+
+            if (_useMask)
+            {
+                header[2] = masking_key[0];
+                header[3] = masking_key[1];
+                header[4] = masking_key[2];
+                header[5] = masking_key[3];
+            }
+        }
+        else if (message_size < 65536)
+        {
+            header[1] = 126 | (_useMask ? 0x80 : 0);
+            header[2] = (message_size >> 8) & 0xff;
+            header[3] = (message_size >> 0) & 0xff;
+
+            if (_useMask)
+            {
+                header[4] = masking_key[0];
+                header[5] = masking_key[1];
+                header[6] = masking_key[2];
+                header[7] = masking_key[3];
+            }
+        }
+        else
+        { // TODO: run coverage testing here
+            header[1] = 127 | (_useMask ? 0x80 : 0);
+            header[2] = (message_size >> 56) & 0xff;
+            header[3] = (message_size >> 48) & 0xff;
+            header[4] = (message_size >> 40) & 0xff;
+            header[5] = (message_size >> 32) & 0xff;
+            header[6] = (message_size >> 24) & 0xff;
+            header[7] = (message_size >> 16) & 0xff;
+            header[8] = (message_size >> 8) & 0xff;
+            header[9] = (message_size >> 0) & 0xff;
+
+            if (_useMask)
+            {
+                header[10] = masking_key[0];
+                header[11] = masking_key[1];
+                header[12] = masking_key[2];
+                header[13] = masking_key[3];
+            }
+        }
+
+        // _txbuf will keep growing until it can be transmitted over the socket:
+        appendToSendBuffer(header, message_begin, message_end, message_size, masking_key);
+
+        // Now actually send this data
+        return sendOnSocket();
+    }
+
+    void WebSocketClient::appendToSendBuffer(const std::vector<uint8_t>& header,
+                                             std::string::const_iterator begin,
+                                             std::string::const_iterator end,
+                                             uint64_t message_size,
+                                             uint8_t masking_key[4])
+    {
+        _txbuf.insert(_txbuf.end(), header.begin(), header.end());
+        _txbuf.insert(_txbuf.end(), begin, end);
+
+        if (_useMask)
+        {
+            for (size_t i = 0; i != (size_t) message_size; ++i)
+            {
+                *(_txbuf.end() - (size_t) message_size + i) ^= masking_key[i & 0x3];
+            }
+        }
+    }
+
+    bool WebSocketClient::sendOnSocket()
+    {
+#if 0
+        while (_txbuf.size())
+        {
+            ssize_t ret = 0;
+            {
+                ret = _socket->send((char*) &_txbuf[0], _txbuf.size());
+            }
+
+            if (ret < 0 && Socket::isWaitNeeded())
+            {
+                break;
+            }
+            else if (ret <= 0)
+            {
+                closeSocket();
+                setReadyState(ReadyState::Closed);
+                return false;
+            }
+            else
+            {
+                _txbuf.erase(_txbuf.begin(), _txbuf.begin() + ret);
+            }
+        }
+#endif
+        spdlog::debug("sendOnSocket");
+
+        return true;
+    }
+
+    unsigned WebSocketClient::getRandomUnsigned()
+    {
+        auto now = std::chrono::system_clock::now();
+        auto seconds =
+            std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+        return static_cast<unsigned>(seconds);
+    }
+
+    void WebSocketClient::setReadyState(ReadyState readyState)
+    {
+        _readyState = readyState;
     }
 } // namespace uvweb
