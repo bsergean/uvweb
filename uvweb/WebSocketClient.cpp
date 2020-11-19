@@ -12,6 +12,7 @@
 #include <memory>
 #include <spdlog/spdlog.h>
 #include <sstream>
+#include <random>
 #include <uvw.hpp>
 
 namespace uvweb
@@ -91,7 +92,29 @@ namespace uvweb
         return 0;
     }
 
-    void writeRequest(const Request& request, uvw::TCPHandle& client)
+    std::string genRandomString(const int len)
+    {
+        std::string alphanum = "0123456789"
+                               "ABCDEFGH"
+                               "abcdefgh";
+
+        std::random_device r;
+        std::default_random_engine e1(r());
+        std::uniform_int_distribution<int> dist(0, (int) alphanum.size() - 1);
+
+        std::string s;
+        s.resize(len);
+
+        for (int i = 0; i < len; ++i)
+        {
+            int x = dist(e1);
+            s[i] = alphanum[x];
+        }
+
+        return s;
+    }
+
+    void writeHandshakeRequest(const Request& request, uvw::TCPHandle& client)
     {
         // Write the request to the socket
         std::stringstream ss;
@@ -101,34 +124,30 @@ namespace uvweb
         ss << " ";
         ss << "HTTP/1.1\r\n";
 
-        // Write headers
-        if (request.method != "GET" && request.method != "HEAD")
-        {
-            ss << "Content-Length: " << request.body.size() << "\r\n";
-        }
+        //
+        // Generate a random 24 bytes string which looks like it is base64 encoded
+        // y3JJHMbDL1EzLkh9GBhXDw==
+        // 0cb3Vd9HkbpVVumoS3Noka==
+        //
+        // See https://stackoverflow.com/questions/18265128/what-is-sec-websocket-key-for
+        //
+        std::string secWebSocketKey = genRandomString(22);
+        secWebSocketKey += "==";
 
         // FIXME: only write those default headers if no user supplied are presents
         ss << "Host: "
            << request.host
            << "\r\n";
-        ss << "Accept: */*"
-           << "\r\n";
-        ss << "Accept-Encoding: gzip"
-           << "\r\n";
-        ss << "User-Agent: uvweb-client"
-           << "\r\n";
+        ss << "Upgrade: websocket\r\n";
+        ss << "Connection: Upgrade\r\n";
+        ss << "Sec-WebSocket-Version: 13\r\n";
+        ss << "Sec-WebSocket-Key: " << secWebSocketKey << "\r\n";
 
         for (auto&& it : request.headers)
         {
             ss << it.first << ": " << it.second << "\r\n";
         }
         ss << "\r\n";
-
-        if (request.method != "GET" && request.method != "HEAD")
-        {
-            ss << request.body;
-            ss << "\r\n";
-        }
 
         auto str = ss.str();
         spdlog::debug("Client request: {}", str);
@@ -202,7 +221,7 @@ namespace uvweb
 
         // On connect
         client->once<uvw::ConnectEvent>([&request](const uvw::ConnectEvent &, uvw::TCPHandle &client) {
-            writeRequest(request, client);
+            writeHandshakeRequest(request, client);
         });
 
         client->on<uvw::DataEvent>([response, parser, &settings](const uvw::DataEvent& event,
@@ -222,9 +241,9 @@ namespace uvweb
             }
 
             // Write response
-            if (response->messageComplete)
+            if (response->messageComplete && parser->upgrade)
             {
-                spdlog::info("Message complete, status code: {}", response->statusCode);
+                spdlog::info("HTTP Upgrade, status code: {}", response->statusCode);
                 client.close();
             }
         });

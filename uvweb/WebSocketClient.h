@@ -12,7 +12,6 @@ namespace uvweb
         std::string currentHeaderName;
         std::string currentHeaderValue;
         std::string path;
-        std::string body;
         std::string method;
         std::string host;
         bool messageComplete = false;
