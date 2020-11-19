@@ -114,12 +114,22 @@ namespace uvweb
         return s;
     }
 
+    const std::string WebSocketClient::kPingMessage("ixwebsocket::heartbeat");
+    const int WebSocketClient::kDefaultPingIntervalSecs(-1);
+    const bool WebSocketClient::kDefaultEnablePong(true);
+    const int WebSocketClient::kClosingMaximumWaitingDelayInMs(300);
     constexpr size_t WebSocketClient::kChunkSize;
 
     WebSocketClient::WebSocketClient()
         : _useMask(true)
         , _readyState(ReadyState::Closed)
         , _closeCode(WebSocketCloseConstants::kInternalErrorCode)
+        , mHandshaked(false)
+        , _closingTimePoint(std::chrono::steady_clock::now())
+        , _enablePong(kDefaultEnablePong)
+        , _pingIntervalSecs(kDefaultPingIntervalSecs)
+        , _pongReceived(false)
+        , _pingCount(0)
     {
         // Register http parser callbacks
         memset(&mSettings, 0, sizeof(mSettings));
@@ -174,6 +184,8 @@ namespace uvweb
         mClient->on<uvw::ErrorEvent>([&host, &port](const uvw::ErrorEvent& errorEvent,
                                                     uvw::TCPHandle&) {
             spdlog::error("Connection to {} on port {} failed : {}", host, port, errorEvent.name());
+
+            // FIXME: maybe call handleReadError(), ported from ix ?
         });
 
         // On connect
@@ -187,45 +199,54 @@ namespace uvweb
 
         mClient->on<uvw::DataEvent>([this, response, callback](
                                      const uvw::DataEvent& event, uvw::TCPHandle& client) {
-            int nparsed = http_parser_execute(mHttpParser.get(), &mSettings,
-                                              event.data.get(), event.length);
-
-            if (nparsed != event.length)
+            if (mHandshaked)
             {
-                std::stringstream ss;
-                ss << "HTTP Parsing Error: "
-                   << "description: " << http_errno_description(HTTP_PARSER_ERRNO(mHttpParser))
-                   << " error name " << http_errno_name(HTTP_PARSER_ERRNO(mHttpParser)) << " nparsed "
-                   << nparsed << " event.length " << event.length;
-                spdlog::error(ss.str());
-                return;
+                spdlog::debug("Received {} bytes", event.length);
+                std::string msg(event.data.get(), event.length);
+                dispatch(msg, callback);
             }
-
-            // Write response
-            if (response->messageComplete && mHttpParser->upgrade)
+            else
             {
-                spdlog::info("HTTP Upgrade, status code: {}", response->statusCode);
+                int nparsed = http_parser_execute(mHttpParser.get(), &mSettings,
+                                                  event.data.get(), event.length);
 
-                // FIXME: missing validation of WebSocket Key header
+                if (nparsed != event.length)
+                {
+                    std::stringstream ss;
+                    ss << "HTTP Parsing Error: "
+                       << "description: " << http_errno_description(HTTP_PARSER_ERRNO(mHttpParser))
+                       << " error name " << http_errno_name(HTTP_PARSER_ERRNO(mHttpParser)) << " nparsed "
+                       << nparsed << " event.length " << event.length;
+                    spdlog::error(ss.str());
+                    return;
+                }
 
-                setReadyState(ReadyState::Open);
+                // Write response
+                if (response->messageComplete && mHttpParser->upgrade)
+                {
+                    spdlog::info("HTTP Upgrade, status code: {}", response->statusCode);
 
-                callback(std::make_unique<WebSocketMessage>(
-                    WebSocketMessageType::Open,
-                    "",
-                    0,
-                    WebSocketErrorInfo(),
-                    // WebSocketOpenInfo(status.uri, response.headers, status.protocol),
-                    WebSocketOpenInfo(response->uri, response->headers, response->protocol),
-                    WebSocketCloseInfo()));
+                    // FIXME: missing validation of WebSocket Key header
 
-                // emit connected callback
-                // client.close();
+                    mHandshaked = true;
+                    setReadyState(ReadyState::Open);
+
+                    // emit connected callback
+                    callback(std::make_unique<WebSocketMessage>(
+                        WebSocketMessageType::Open,
+                        "",
+                        0,
+                        WebSocketErrorInfo(),
+                        // FIXME empty fields
+                        // WebSocketOpenInfo(status.uri, response.headers, status.protocol),
+                        WebSocketOpenInfo(response->uri, response->headers, response->protocol),
+                        WebSocketCloseInfo()));
+                }
             }
         });
 
         mClient->connect(*addr->ai_addr);
-        mClient->read();
+        mClient->read(); // necessary or nothing happens
     }
 
     bool WebSocketClient::writeHandshakeRequest()
@@ -305,13 +326,80 @@ namespace uvweb
         return sendData(wsheader_type::TEXT_FRAME, text);
     }
 
-    void WebSocketClient::close(uint16_t code, const std::string& reason)
+    void WebSocketClient::close(uint16_t code,
+                                const std::string& reason,
+                                size_t closeWireSize,
+                                bool remote)
     {
-        // FIXME no-op
+        spdlog::error("Close not implemented !!");
+
+        if (_readyState == ReadyState::Closing || _readyState == ReadyState::Closed)
+        {
+            return;
+        }
+
+        if (closeWireSize == 0)
+        {
+            closeWireSize = reason.size();
+        }
+
+        setCloseReason(reason);
+        _closeCode = code;
+        _closeWireSize = closeWireSize;
+        _closeRemote = remote;
+
+        _closingTimePoint = std::chrono::steady_clock::now();
+        setReadyState(ReadyState::Closing);
+
+        sendCloseFrame(code, reason);
+    }
+
+    void WebSocketClient::closeSocketAndSwitchToClosedState(uint16_t code,
+                                                            const std::string& reason,
+                                                            size_t closeWireSize,
+                                                            bool remote)
+    {
+        closeSocket();
+
+        setCloseReason(reason);
+        _closeCode = code;
+        _closeWireSize = closeWireSize;
+        _closeRemote = remote;
+
+        setReadyState(ReadyState::Closed);
+    }
+
+    void WebSocketClient::closeSocket()
+    {
+        mClient->close();
+    }
+
+    void WebSocketClient::sendCloseFrame(uint16_t code, const std::string& reason)
+    {
+        bool compress = false;
+
+        // if a status is set/was read
+        if (code != WebSocketCloseConstants::kNoStatusCodeErrorCode)
+        {
+            // See list of close events here:
+            // https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent
+            std::string closure {(char) (code >> 8), (char) (code & 0xff)};
+
+            // copy reason after code
+            closure.append(reason);
+
+            sendData(wsheader_type::CLOSE, closure, compress);
+        }
+        else
+        {
+            // no close code/reason set
+            sendData(wsheader_type::CLOSE, std::string(""), compress);
+        }
     }
 
     bool WebSocketClient::sendData(wsheader_type::opcode_type type,
-                                   const std::string& message)
+                                   const std::string& message,
+                                   bool compress)
     {
         if (_readyState != ReadyState::Open && _readyState != ReadyState::Closing)
         {
@@ -323,7 +411,6 @@ namespace uvweb
         auto message_end = message.cend();
 
         bool success = true;
-        const bool compress = false; // FIXME not supported yet
 
         // Common case for most message. No fragmentation required.
         if (wireSize < kChunkSize)
@@ -484,6 +571,17 @@ namespace uvweb
         return sendOnSocket(txbuf);
     }
 
+    void WebSocketClient::unmaskReceiveBuffer(const wsheader_type& ws)
+    {
+        if (ws.mask)
+        {
+            for (size_t j = 0; j != ws.N; ++j)
+            {
+                _rxbuf[j + ws.header_size] ^= ws.masking_key[j & 0x3];
+            }
+        }
+    }
+
     unsigned WebSocketClient::getRandomUnsigned()
     {
         auto now = std::chrono::system_clock::now();
@@ -495,5 +593,414 @@ namespace uvweb
     void WebSocketClient::setReadyState(ReadyState readyState)
     {
         _readyState = readyState;
+    }
+
+    //
+    // http://tools.ietf.org/html/rfc6455#section-5.2  Base Framing Protocol
+    //
+    //  0                   1                   2                   3
+    //  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    // +-+-+-+-+-------+-+-------------+-------------------------------+
+    // |F|R|R|R| opcode|M| Payload len |    Extended payload length    |
+    // |I|S|S|S|  (4)  |A|     (7)     |             (16/64)           |
+    // |N|V|V|V|       |S|             |   (if payload len==126/127)   |
+    // | |1|2|3|       |K|             |                               |
+    // +-+-+-+-+-------+-+-------------+ - - - - - - - - - - - - - - - +
+    // |     Extended payload length continued, if payload len == 127  |
+    // + - - - - - - - - - - - - - - - +-------------------------------+
+    // |                               |Masking-key, if MASK set to 1  |
+    // +-------------------------------+-------------------------------+
+    // | Masking-key (continued)       |          Payload Data         |
+    // +-------------------------------- - - - - - - - - - - - - - - - +
+    // :                     Payload Data continued ...                :
+    // + - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +
+    // |                     Payload Data continued ...                |
+    // +---------------------------------------------------------------+
+    //
+    void WebSocketClient::dispatch(const std::string& buffer,
+                                   const OnMessageCallback& onMessageCallback)
+    {
+        //
+        // Append the incoming data to our _rxbuf receive buffer.
+        //
+        _rxbuf.insert(_rxbuf.end(), buffer.begin(), buffer.end());
+
+        while (true)
+        {
+            wsheader_type ws;
+            if (_rxbuf.size() < 2) break;                /* Need at least 2 */
+            const uint8_t* data = (uint8_t*) &_rxbuf[0]; // peek, but don't consume
+            ws.fin = (data[0] & 0x80) == 0x80;
+            ws.rsv1 = (data[0] & 0x40) == 0x40;
+            ws.rsv2 = (data[0] & 0x20) == 0x20;
+            ws.rsv3 = (data[0] & 0x10) == 0x10;
+            ws.opcode = (wsheader_type::opcode_type)(data[0] & 0x0f);
+            ws.mask = (data[1] & 0x80) == 0x80;
+            ws.N0 = (data[1] & 0x7f);
+            ws.header_size =
+                2 + (ws.N0 == 126 ? 2 : 0) + (ws.N0 == 127 ? 8 : 0) + (ws.mask ? 4 : 0);
+            if (_rxbuf.size() < ws.header_size) break; /* Need: ws.header_size - _rxbuf.size() */
+
+            if ((ws.rsv1 && !_enablePerMessageDeflate) || ws.rsv2 || ws.rsv3)
+            {
+                close(WebSocketCloseConstants::kProtocolErrorCode,
+                      WebSocketCloseConstants::kProtocolErrorReservedBitUsed,
+                      _rxbuf.size());
+                return;
+            }
+
+            //
+            // Calculate payload length:
+            // 0-125 mean the payload is that long.
+            // 126 means that the following two bytes indicate the length,
+            // 127 means the next 8 bytes indicate the length.
+            //
+            int i = 0;
+            if (ws.N0 < 126)
+            {
+                ws.N = ws.N0;
+                i = 2;
+            }
+            else if (ws.N0 == 126)
+            {
+                ws.N = 0;
+                ws.N |= ((uint64_t) data[2]) << 8;
+                ws.N |= ((uint64_t) data[3]) << 0;
+                i = 4;
+            }
+            else if (ws.N0 == 127)
+            {
+                ws.N = 0;
+                ws.N |= ((uint64_t) data[2]) << 56;
+                ws.N |= ((uint64_t) data[3]) << 48;
+                ws.N |= ((uint64_t) data[4]) << 40;
+                ws.N |= ((uint64_t) data[5]) << 32;
+                ws.N |= ((uint64_t) data[6]) << 24;
+                ws.N |= ((uint64_t) data[7]) << 16;
+                ws.N |= ((uint64_t) data[8]) << 8;
+                ws.N |= ((uint64_t) data[9]) << 0;
+                i = 10;
+            }
+            else
+            {
+                // invalid payload length according to the spec. bail out
+                return;
+            }
+
+            if (ws.mask)
+            {
+                ws.masking_key[0] = ((uint8_t) data[i + 0]) << 0;
+                ws.masking_key[1] = ((uint8_t) data[i + 1]) << 0;
+                ws.masking_key[2] = ((uint8_t) data[i + 2]) << 0;
+                ws.masking_key[3] = ((uint8_t) data[i + 3]) << 0;
+            }
+            else
+            {
+                ws.masking_key[0] = 0;
+                ws.masking_key[1] = 0;
+                ws.masking_key[2] = 0;
+                ws.masking_key[3] = 0;
+            }
+
+            // Prevent integer overflow in the next conditional
+            const uint64_t maxFrameSize(1ULL << 63);
+            if (ws.N > maxFrameSize)
+            {
+                return;
+            }
+
+            if (_rxbuf.size() < ws.header_size + ws.N)
+            {
+                return; /* Need: ws.header_size+ws.N - _rxbuf.size() */
+            }
+
+            if (!ws.fin && (ws.opcode == wsheader_type::PING || ws.opcode == wsheader_type::PONG ||
+                            ws.opcode == wsheader_type::CLOSE))
+            {
+                // Control messages should not be fragmented
+                close(WebSocketCloseConstants::kProtocolErrorCode,
+                      WebSocketCloseConstants::kProtocolErrorCodeControlMessageFragmented);
+                return;
+            }
+
+            unmaskReceiveBuffer(ws);
+            std::string frameData(_rxbuf.begin() + ws.header_size,
+                                  _rxbuf.begin() + ws.header_size + (size_t) ws.N);
+
+            // We got a whole message, now do something with it:
+            if (ws.opcode == wsheader_type::TEXT_FRAME ||
+                ws.opcode == wsheader_type::BINARY_FRAME ||
+                ws.opcode == wsheader_type::CONTINUATION)
+            {
+                if (ws.opcode != wsheader_type::CONTINUATION)
+                {
+                    _fragmentedMessageKind = (ws.opcode == wsheader_type::TEXT_FRAME)
+                                                 ? MessageKind::MSG_TEXT
+                                                 : MessageKind::MSG_BINARY;
+
+                    _receivedMessageCompressed = _enablePerMessageDeflate && ws.rsv1;
+
+                    // Continuation message needs to follow a non-fin TEXT or BINARY message
+                    if (!_chunks.empty())
+                    {
+                        close(WebSocketCloseConstants::kProtocolErrorCode,
+                              WebSocketCloseConstants::kProtocolErrorCodeDataOpcodeOutOfSequence);
+                    }
+                }
+                else if (_chunks.empty())
+                {
+                    // Continuation message need to follow a non-fin TEXT or BINARY message
+                    close(
+                        WebSocketCloseConstants::kProtocolErrorCode,
+                        WebSocketCloseConstants::kProtocolErrorCodeContinuationOpCodeOutOfSequence);
+                }
+
+                //
+                // Usual case. Small unfragmented messages
+                //
+                if (ws.fin && _chunks.empty())
+                {
+                    emitMessage(_fragmentedMessageKind,
+                                frameData,
+                                _receivedMessageCompressed,
+                                onMessageCallback);
+
+                    _receivedMessageCompressed = false;
+                }
+                else
+                {
+                    //
+                    // Add intermediary message to our chunk list.
+                    // We use a chunk list instead of a big buffer because resizing
+                    // large buffer can be very costly when we need to re-allocate
+                    // the internal buffer which is slow and can let the internal OS
+                    // receive buffer fill out.
+                    //
+                    _chunks.emplace_back(frameData);
+
+                    if (ws.fin)
+                    {
+                        emitMessage(_fragmentedMessageKind,
+                                    getMergedChunks(),
+                                    _receivedMessageCompressed,
+                                    onMessageCallback);
+
+                        _chunks.clear();
+                        _receivedMessageCompressed = false;
+                    }
+                    else
+                    {
+                        emitMessage(MessageKind::FRAGMENT, std::string(), false, onMessageCallback);
+                    }
+                }
+            }
+            else if (ws.opcode == wsheader_type::PING)
+            {
+                // too large
+                if (frameData.size() > 125)
+                {
+                    // Unexpected frame type
+                    close(WebSocketCloseConstants::kProtocolErrorCode,
+                          WebSocketCloseConstants::kProtocolErrorPingPayloadOversized);
+                    return;
+                }
+
+                if (_enablePong)
+                {
+                    // Reply back right away
+                    bool compress = false;
+                    sendData(wsheader_type::PONG, frameData, compress);
+                }
+
+                emitMessage(MessageKind::PING, frameData, false, onMessageCallback);
+            }
+            else if (ws.opcode == wsheader_type::PONG)
+            {
+                _pongReceived = true;
+                emitMessage(MessageKind::PONG, frameData, false, onMessageCallback);
+            }
+            else if (ws.opcode == wsheader_type::CLOSE)
+            {
+                std::string reason;
+                uint16_t code = 0;
+
+                if (ws.N >= 2)
+                {
+                    // Extract the close code first, available as the first 2 bytes
+                    code |= ((uint64_t) _rxbuf[ws.header_size]) << 8;
+                    code |= ((uint64_t) _rxbuf[ws.header_size + 1]) << 0;
+
+                    // Get the reason.
+                    if (ws.N > 2)
+                    {
+                        reason = frameData.substr(2, frameData.size());
+                    }
+
+                    // Validate that the reason is proper utf-8. Autobahn 7.5.1
+                    if (!validateUtf8(reason))
+                    {
+                        code = WebSocketCloseConstants::kInvalidFramePayloadData;
+                        reason = WebSocketCloseConstants::kInvalidFramePayloadDataMessage;
+                    }
+
+                    //
+                    // Validate close codes. Autobahn 7.9.*
+                    // 1014, 1015 are debattable. The firefox MSDN has a description for them.
+                    // Full list of status code and status range is defined in the dedicated
+                    // RFC section at https://tools.ietf.org/html/rfc6455#page-45
+                    //
+                    if (code < 1000 || code == 1004 || code == 1006 || (code > 1013 && code < 3000))
+                    {
+                        // build up an error message containing the bad error code
+                        std::stringstream ss;
+                        ss << WebSocketCloseConstants::kInvalidCloseCodeMessage << ": " << code;
+                        reason = ss.str();
+
+                        code = WebSocketCloseConstants::kProtocolErrorCode;
+                    }
+                }
+                else
+                {
+                    // no close code received
+                    code = WebSocketCloseConstants::kNoStatusCodeErrorCode;
+                    reason = WebSocketCloseConstants::kNoStatusCodeErrorMessage;
+                }
+
+                // We receive a CLOSE frame from remote and are NOT the ones who triggered the close
+                if (_readyState != ReadyState::Closing)
+                {
+                    // send back the CLOSE frame
+                    sendCloseFrame(code, reason);
+
+                    // FIXME delete ?
+                    // wakeUpFromPoll(SelectInterrupt::kCloseRequest);
+
+                    bool remote = true;
+                    closeSocketAndSwitchToClosedState(code, reason, _rxbuf.size(), remote);
+                }
+                else
+                {
+                    // we got the CLOSE frame answer from our close, so we can close the connection
+                    // if the code/reason are the same
+                    bool identicalReason = _closeCode == code && getCloseReason() == reason;
+
+                    if (identicalReason)
+                    {
+                        bool remote = false;
+                        closeSocketAndSwitchToClosedState(code, reason, _rxbuf.size(), remote);
+                    }
+                }
+            }
+            else
+            {
+                // Unexpected frame type
+                close(WebSocketCloseConstants::kProtocolErrorCode,
+                      WebSocketCloseConstants::kProtocolErrorMessage,
+                      _rxbuf.size());
+            }
+
+            // Erase the message that has been processed from the input/read buffer
+            _rxbuf.erase(_rxbuf.begin(), _rxbuf.begin() + ws.header_size + (size_t) ws.N);
+        }
+    }
+
+    void WebSocketClient::handleReadError()
+    {
+        // if an abnormal closure was raised in poll, and nothing else triggered a CLOSED state in
+        // the received and processed data then close the connection
+        _rxbuf.clear();
+
+        // if we previously closed the connection (CLOSING state), then set state to CLOSED
+        // (code/reason were set before)
+        if (_readyState == ReadyState::Closing)
+        {
+            closeSocket();
+            setReadyState(ReadyState::Closed);
+        }
+        // if we weren't closing, then close using abnormal close code and message
+        else if (_readyState != ReadyState::Closed)
+        {
+            closeSocketAndSwitchToClosedState(WebSocketCloseConstants::kAbnormalCloseCode,
+                                              WebSocketCloseConstants::kAbnormalCloseMessage,
+                                              0,
+                                              false);
+        }
+    }
+
+    std::string WebSocketClient::getMergedChunks() const
+    {
+        size_t length = 0;
+        for (auto&& chunk : _chunks)
+        {
+            length += chunk.size();
+        }
+
+        std::string msg;
+        msg.reserve(length);
+
+        for (auto&& chunk : _chunks)
+        {
+            msg += chunk;
+        }
+
+        return msg;
+    }
+
+    void WebSocketClient::emitMessage(MessageKind messageKind,
+                                      const std::string& message,
+                                      bool compressedMessage,
+                                      const OnMessageCallback& onMessageCallback)
+    {
+        WebSocketMessageType webSocketMessageType;
+        switch (messageKind)
+        {
+            case MessageKind::MSG_TEXT:
+            case MessageKind::MSG_BINARY:
+            {
+                webSocketMessageType = WebSocketMessageType::Message;
+            }
+            break;
+
+            case MessageKind::PING:
+            {
+                webSocketMessageType = WebSocketMessageType::Ping;
+            }
+            break;
+
+            case MessageKind::PONG:
+            {
+                webSocketMessageType = WebSocketMessageType::Pong;
+            }
+            break;
+
+            case MessageKind::FRAGMENT:
+            {
+                webSocketMessageType = WebSocketMessageType::Fragment;
+            }
+            break;
+        }
+
+        WebSocketErrorInfo webSocketErrorInfo;
+
+        bool binary = messageKind == MessageKind::MSG_BINARY;
+        size_t wireSize = message.size(); // FIXME zlib compression support
+
+        onMessageCallback(std::make_unique<WebSocketMessage>(webSocketMessageType,
+                                                             message,
+                                                             wireSize,
+                                                             webSocketErrorInfo,
+                                                             WebSocketOpenInfo(),
+                                                             WebSocketCloseInfo(),
+                                                             binary));
+    }
+
+    void WebSocketClient::setCloseReason(const std::string& reason)
+    {
+        _closeReason = reason;
+    }
+
+    const std::string& WebSocketClient::getCloseReason() const
+    {
+        return _closeReason;
     }
 } // namespace uvweb
