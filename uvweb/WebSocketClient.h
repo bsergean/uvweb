@@ -9,6 +9,9 @@
 #include <vector>
 #include <functional>
 
+#include <uvw.hpp>
+#include "http_parser.h"
+
 namespace uvweb
 {
     struct Request
@@ -91,23 +94,7 @@ namespace uvweb
             uint8_t masking_key[4];
         };
 
-        // Contains all messages that are waiting to be sent
-        std::vector<uint8_t> _txbuf;
-
-        // Fragments are 32K long
-        static constexpr size_t kChunkSize = 1 << 15;
-
-        // Hold the state of the connection (OPEN, CLOSED, etc...)
-        ReadyState _readyState;
-
-        std::string _closeReason;
-        uint16_t _closeCode;
-        size_t _closeWireSize;
-        bool _closeRemote;
-
-        // Tells whether we should mask the data we send.
-        // client should mask but server should not
-        bool _useMask;
+        void writeHandshakeRequest(uvw::TCPHandle& client);
 
         bool sendData(wsheader_type::opcode_type type,
                       const std::string& message);
@@ -129,5 +116,33 @@ namespace uvweb
         unsigned getRandomUnsigned();
 
         void setReadyState(ReadyState readyState);
+
+        //
+        // Member variables
+        //
+        std::shared_ptr<uvw::TCPHandle> mClient;
+        http_parser_settings mSettings;
+        http_parser* mHttpParser;
+
+        Request mRequest;
+
+        // Contains all messages that are waiting to be sent
+        std::vector<uint8_t> _txbuf;
+
+        // Fragments are 32K long
+        static constexpr size_t kChunkSize = 1 << 15;
+
+        // Hold the state of the connection (OPEN, CLOSED, etc...)
+        ReadyState _readyState;
+
+        std::string _closeReason;
+        uint16_t _closeCode;
+        size_t _closeWireSize;
+        bool _closeRemote;
+
+        // Tells whether we should mask the data we send.
+        // client should mask but server should not
+        bool _useMask;
+
     };
 }
