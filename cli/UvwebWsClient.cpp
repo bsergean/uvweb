@@ -1,7 +1,7 @@
 
 #include "WsClientOptions.h"
-#include <uvweb/WebSocketClient.h>
 #include <iostream>
+#include <uvweb/WebSocketClient.h>
 
 int main(int argc, char* argv[])
 {
@@ -13,20 +13,17 @@ int main(int argc, char* argv[])
     }
 
     uvweb::WebSocketClient webSocketClient;
-    webSocketClient.connect(
-        args.url, 
-        [](const uvweb::WebSocketMessagePtr& msg)
+    webSocketClient.connect(args.url, [&webSocketClient](const uvweb::WebSocketMessagePtr& msg) {
+        if (msg->type == uvweb::WebSocketMessageType::Message)
         {
-            if (msg->type == uvweb::WebSocketMessageType::Message)
-            {
-                std::cout << "received message: " << msg->str << std::endl;
-            }
-            else if (msg->type == uvweb::WebSocketMessageType::Open)
-            {
-                std::cout << "Connection established" << std::endl;
-            }
+            std::cout << "received message: " << msg->str << std::endl;
         }
-    );
+        else if (msg->type == uvweb::WebSocketMessageType::Open)
+        {
+            std::cout << "Connection established" << std::endl;
+            webSocketClient.sendText("Hello world");
+        }
+    });
 
     return 0;
 }

@@ -4,6 +4,7 @@
 #include "WebSocketClient.h"
 
 #include "UrlParser.h"
+#include "Utf8Validator.h"
 #include "gzip.h"
 #include "http_parser.h"
 #include <cstring>
@@ -160,8 +161,7 @@ namespace uvweb
         ;
     }
 
-    void WebSocketClient::connect(const std::string& url,
-                                  const OnMessageCallback& callback)
+    void WebSocketClient::connect(const std::string& url, const OnMessageCallback& callback)
     {
         std::string protocol, host, path, query;
         int port;
@@ -225,8 +225,8 @@ namespace uvweb
                 writeHandshakeRequest(request, client);
             });
 
-        client->on<uvw::DataEvent>([response, parser, &settings, callback](const uvw::DataEvent& event,
-                                                                 uvw::TCPHandle& client) {
+        client->on<uvw::DataEvent>([response, parser, &settings, callback](
+                                       const uvw::DataEvent& event, uvw::TCPHandle& client) {
             int nparsed = http_parser_execute(parser, &settings, event.data.get(), event.length);
 
             if (nparsed != event.length)
@@ -265,5 +265,37 @@ namespace uvweb
 
         client->read();
         loop->run();
+    }
+
+    bool WebSocketClient::send(const std::string& data, bool binary)
+    {
+        return (binary) ? sendBinary(data) : sendText(data);
+    }
+
+    bool WebSocketClient::sendBinary(const std::string& text)
+    {
+        return sendMessage(text, SendMessageKind::Binary);
+    }
+
+    bool WebSocketClient::sendText(const std::string& text)
+    {
+        if (!validateUtf8(text))
+        {
+            close(WebSocketCloseConstants::kInvalidFramePayloadData,
+                  WebSocketCloseConstants::kInvalidFramePayloadDataMessage);
+            return false;
+        }
+        return sendMessage(text, SendMessageKind::Text);
+    }
+
+    bool WebSocketClient::sendMessage(const std::string& data, SendMessageKind sendMessageKind)
+    {
+        // FIXME
+        return false;
+    }
+
+    void WebSocketClient::close(uint16_t code, const std::string& reason)
+    {
+        // FIXME no-op
     }
 } // namespace uvweb

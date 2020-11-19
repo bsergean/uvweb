@@ -76,6 +76,7 @@ target_sources(uvweb PRIVATE
   uvweb/HttpServer.cpp
   uvweb/HttpClient.cpp
   uvweb/WebSocketClient.cpp
+  uvweb/WebSocketCloseConstants.cpp
   uvweb/StrCaseCompare.cpp
 )
 

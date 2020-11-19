@@ -2,6 +2,7 @@
 #pragma once
 
 #include "WebSocketMessage.h"
+#include "WebSocketCloseConstants.h"
 
 #include <string>
 #include <map>
@@ -42,6 +43,13 @@ namespace uvweb
         Closed = 3
     };
 
+    enum class SendMessageKind
+    {
+        Text,
+        Binary,
+        Ping
+    };
+
     using OnMessageCallback = std::function<void(const WebSocketMessagePtr&)>;
 
     class WebSocketClient
@@ -51,6 +59,15 @@ namespace uvweb
         void connect(const std::string& url,
                      const OnMessageCallback& callback);
 
+        bool send(const std::string& data, bool binary);
+        bool sendBinary(const std::string& text);
+        bool sendText(const std::string& text);
+        bool ping(const std::string& text);
+
+        void close(uint16_t code = WebSocketCloseConstants::kNormalClosureCode,
+                   const std::string& reason = WebSocketCloseConstants::kNormalClosureMessage);
+
     private:
+        bool sendMessage(const std::string& data, SendMessageKind sendMessageKind);
     };
 }
