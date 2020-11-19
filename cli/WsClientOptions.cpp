@@ -53,6 +53,8 @@ bool parseOptions(int argc, char* argv[], Args& args)
     // clang-format off
     options.add_options()
         ( "u,url", "Param url", cxxopts::value<std::string>() )
+        ( "autoroute", "Autoroute mode", cxxopts::value<bool>()->default_value( "false" ) )
+        ( "msg_count", "Autoroute message count", cxxopts::value<int>()->default_value( "1000000" ) )
         ( "h,help", "Print usage" )
 
         // Log levels
@@ -84,6 +86,9 @@ bool parseOptions(int argc, char* argv[], Args& args)
         }
 
         args.url = result["url"].as<std::string>();
+        args.autoroute = result["autoroute"].as<bool>();
+        args.msgCount = result["msg_count"].as<int>();
+        
         args.traceLevel = result["trace"].as<bool>();
         args.debugLevel = result["debug"].as<bool>();
         args.infoLevel = result["info"].as<bool>();

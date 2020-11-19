@@ -6,6 +6,8 @@
 struct Args
 {
     std::string url;
+    int msgCount = 1000000;
+    bool autoroute = false;
 
     // Log levels
     bool traceLevel = false;
