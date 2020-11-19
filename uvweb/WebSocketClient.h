@@ -121,8 +121,8 @@ namespace uvweb
         // Member variables
         //
         std::shared_ptr<uvw::TCPHandle> mClient;
+        std::shared_ptr<http_parser> mHttpParser;
         http_parser_settings mSettings;
-        http_parser* mHttpParser;
 
         Request mRequest;
 

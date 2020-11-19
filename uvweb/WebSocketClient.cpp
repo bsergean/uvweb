@@ -121,9 +121,6 @@ namespace uvweb
         , _readyState(ReadyState::Closed)
         , _closeCode(WebSocketCloseConstants::kInternalErrorCode)
     {
-        auto loop = uvw::Loop::getDefault();
-        mClient = loop->resource<uvw::TCPHandle>();
-
         // Register http parser callbacks
         memset(&mSettings, 0, sizeof(mSettings));
         mSettings.on_message_begin = on_message_begin;
@@ -133,9 +130,6 @@ namespace uvweb
         mSettings.on_header_field = on_header_field;
         mSettings.on_header_value = on_header_value;
         mSettings.on_body = on_body;
-
-        mHttpParser = (http_parser*) malloc(sizeof(http_parser));
-        http_parser_init(mHttpParser, HTTP_RESPONSE);
     }
 
     void WebSocketClient::connect(const std::string& url, const OnMessageCallback& callback)
@@ -152,6 +146,9 @@ namespace uvweb
         }
 
         auto loop = uvw::Loop::getDefault();
+        mClient = loop->resource<uvw::TCPHandle>();
+        mHttpParser = std::make_shared<http_parser>();
+        http_parser_init(mHttpParser.get(), HTTP_RESPONSE);
 
         auto dnsRequest = loop->resource<uvw::GetAddrInfoReq>();
         auto [dnsLookupSuccess, addr] =
@@ -187,7 +184,7 @@ namespace uvweb
 
         mClient->on<uvw::DataEvent>([this, response, callback](
                                      const uvw::DataEvent& event, uvw::TCPHandle& client) {
-            int nparsed = http_parser_execute(mHttpParser, &mSettings,
+            int nparsed = http_parser_execute(mHttpParser.get(), &mSettings,
                                               event.data.get(), event.length);
 
             if (nparsed != event.length)
