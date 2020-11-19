@@ -2,17 +2,17 @@
 
 
 #include "WebSocketClient.h"
-#include "UrlParser.h"
 
+#include "UrlParser.h"
 #include "gzip.h"
 #include "http_parser.h"
 #include <cstring>
 #include <iostream>
 #include <map>
 #include <memory>
+#include <random>
 #include <spdlog/spdlog.h>
 #include <sstream>
-#include <random>
 #include <uvw.hpp>
 
 namespace uvweb
@@ -135,9 +135,7 @@ namespace uvweb
         secWebSocketKey += "==";
 
         // FIXME: only write those default headers if no user supplied are presents
-        ss << "Host: "
-           << request.host
-           << "\r\n";
+        ss << "Host: " << request.host << "\r\n";
         ss << "Upgrade: websocket\r\n";
         ss << "Connection: Upgrade\r\n";
         ss << "Sec-WebSocket-Version: 13\r\n";
@@ -162,7 +160,8 @@ namespace uvweb
         ;
     }
 
-    void WebSocketClient::connect(const std::string& url)
+    void WebSocketClient::connect(const std::string& url,
+                                  const OnMessageCallback& callback)
     {
         std::string protocol, host, path, query;
         int port;
@@ -178,7 +177,8 @@ namespace uvweb
         auto loop = uvw::Loop::getDefault();
 
         auto dnsRequest = loop->resource<uvw::GetAddrInfoReq>();
-        auto [dnsLookupSuccess, addr] = dnsRequest->addrInfoSync(host, std::to_string(port));  // FIXME: do DNS asynchronously
+        auto [dnsLookupSuccess, addr] =
+            dnsRequest->addrInfoSync(host, std::to_string(port)); // FIXME: do DNS asynchronously
         if (!dnsLookupSuccess)
         {
             std::stringstream ss;
@@ -214,18 +214,19 @@ namespace uvweb
         request.host = host;
 
         // On Error
-        client->on<uvw::ErrorEvent>([&host, &port](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle &) { 
-            spdlog::error("Connection to {} on port {} failed : {}",
-                          host, port, errorEvent.name());
+        client->on<uvw::ErrorEvent>([&host, &port](const uvw::ErrorEvent& errorEvent,
+                                                   uvw::TCPHandle&) {
+            spdlog::error("Connection to {} on port {} failed : {}", host, port, errorEvent.name());
         });
 
         // On connect
-        client->once<uvw::ConnectEvent>([&request](const uvw::ConnectEvent &, uvw::TCPHandle &client) {
-            writeHandshakeRequest(request, client);
-        });
+        client->once<uvw::ConnectEvent>(
+            [&request](const uvw::ConnectEvent&, uvw::TCPHandle& client) {
+                writeHandshakeRequest(request, client);
+            });
 
-        client->on<uvw::DataEvent>([response, parser, &settings](const uvw::DataEvent& event,
-                                                                uvw::TCPHandle& client) {
+        client->on<uvw::DataEvent>([response, parser, &settings, callback](const uvw::DataEvent& event,
+                                                                 uvw::TCPHandle& client) {
             int nparsed = http_parser_execute(parser, &settings, event.data.get(), event.length);
 
             if (nparsed != event.length)
@@ -233,9 +234,8 @@ namespace uvweb
                 std::stringstream ss;
                 ss << "HTTP Parsing Error: "
                    << "description: " << http_errno_description(HTTP_PARSER_ERRNO(parser))
-                   << " error name " << http_errno_name(HTTP_PARSER_ERRNO(parser))
-                   << " nparsed " << nparsed
-                   << " event.length " << event.length;
+                   << " error name " << http_errno_name(HTTP_PARSER_ERRNO(parser)) << " nparsed "
+                   << nparsed << " event.length " << event.length;
                 spdlog::error(ss.str());
                 return;
             }
@@ -244,7 +244,20 @@ namespace uvweb
             if (response->messageComplete && parser->upgrade)
             {
                 spdlog::info("HTTP Upgrade, status code: {}", response->statusCode);
-                client.close();
+
+                // FIXME: missing validation of WebSocket Key header
+
+                callback(std::make_unique<WebSocketMessage>(
+                    WebSocketMessageType::Open,
+                    "",
+                    0,
+                    WebSocketErrorInfo(),
+                    // WebSocketOpenInfo(status.uri, response.headers, status.protocol),
+                    WebSocketOpenInfo(response->uri, response->headers, response->protocol),
+                    WebSocketCloseInfo()));
+
+                // emit connected callback
+                // client.close();
             }
         });
 
@@ -253,4 +266,4 @@ namespace uvweb
         client->read();
         loop->run();
     }
-}
+} // namespace uvweb

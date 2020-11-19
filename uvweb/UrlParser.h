@@ -20,4 +20,4 @@ namespace uvweb
                           std::string& query,
                           int& port);
     };
-} // namespace ix
+} // namespace uvweb

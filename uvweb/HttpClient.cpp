@@ -1,8 +1,8 @@
 
 
 #include "HttpClient.h"
-#include "UrlParser.h"
 
+#include "UrlParser.h"
 #include "gzip.h"
 #include "http_parser.h"
 #include <cstring>
@@ -107,9 +107,7 @@ namespace uvweb
         }
 
         // FIXME: only write those default headers if no user supplied are presents
-        ss << "Host: "
-           << request.host
-           << "\r\n";
+        ss << "Host: " << request.host << "\r\n";
         ss << "Accept: */*"
            << "\r\n";
         ss << "Accept-Encoding: gzip"
@@ -158,7 +156,8 @@ namespace uvweb
         auto loop = uvw::Loop::getDefault();
 
         auto dnsRequest = loop->resource<uvw::GetAddrInfoReq>();
-        auto [dnsLookupSuccess, addr] = dnsRequest->addrInfoSync(host, std::to_string(port));  // FIXME: do DNS asynchronously
+        auto [dnsLookupSuccess, addr] =
+            dnsRequest->addrInfoSync(host, std::to_string(port)); // FIXME: do DNS asynchronously
         if (!dnsLookupSuccess)
         {
             std::stringstream ss;
@@ -194,18 +193,19 @@ namespace uvweb
         request.host = host;
 
         // On Error
-        client->on<uvw::ErrorEvent>([&host, &port](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle &) { 
-            spdlog::error("Connection to {} on port {} failed : {}",
-                          host, port, errorEvent.name());
+        client->on<uvw::ErrorEvent>([&host, &port](const uvw::ErrorEvent& errorEvent,
+                                                   uvw::TCPHandle&) {
+            spdlog::error("Connection to {} on port {} failed : {}", host, port, errorEvent.name());
         });
 
         // On connect
-        client->once<uvw::ConnectEvent>([&request](const uvw::ConnectEvent &, uvw::TCPHandle &client) {
-            writeRequest(request, client);
-        });
+        client->once<uvw::ConnectEvent>(
+            [&request](const uvw::ConnectEvent&, uvw::TCPHandle& client) {
+                writeRequest(request, client);
+            });
 
         client->on<uvw::DataEvent>([response, parser, &settings](const uvw::DataEvent& event,
-                                                                uvw::TCPHandle& client) {
+                                                                 uvw::TCPHandle& client) {
             int nparsed = http_parser_execute(parser, &settings, event.data.get(), event.length);
 
             if (nparsed != event.length)
@@ -213,9 +213,8 @@ namespace uvweb
                 std::stringstream ss;
                 ss << "HTTP Parsing Error: "
                    << "description: " << http_errno_description(HTTP_PARSER_ERRNO(parser))
-                   << " error name " << http_errno_name(HTTP_PARSER_ERRNO(parser))
-                   << " nparsed " << nparsed
-                   << " event.length " << event.length;
+                   << " error name " << http_errno_name(HTTP_PARSER_ERRNO(parser)) << " nparsed "
+                   << nparsed << " event.length " << event.length;
                 spdlog::error(ss.str());
                 return;
             }
@@ -233,4 +232,4 @@ namespace uvweb
         client->read();
         loop->run();
     }
-}
+} // namespace uvweb

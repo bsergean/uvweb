@@ -1,5 +1,6 @@
 
 #include "gzip.h"
+
 #include <array>
 #include <libdeflate.h>
 
@@ -45,7 +46,7 @@ std::string gzipCompress(const std::string& str)
 uint32_t loadDecompressedGzipSize(const uint8_t* p)
 {
     return ((uint32_t) p[0] << 0) | ((uint32_t) p[1] << 8) | ((uint32_t) p[2] << 16) |
-        ((uint32_t) p[3] << 24);
+           ((uint32_t) p[3] << 24);
 }
 
 bool gzipDecompress(const std::string& in, std::string& out)
@@ -64,7 +65,7 @@ bool gzipDecompress(const std::string& in, std::string& out)
     out.resize(uncompressed_size);
 
     libdeflate_result result = libdeflate_gzip_decompress(
-            decompressor, compressed_data, compressed_size, &out.front(), uncompressed_size, NULL);
+        decompressor, compressed_data, compressed_size, &out.front(), uncompressed_size, NULL);
 
     libdeflate_free_decompressor(decompressor);
     return result == LIBDEFLATE_SUCCESS;

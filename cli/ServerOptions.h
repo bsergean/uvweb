@@ -17,4 +17,4 @@ struct Args
     bool quietLevel = false;
 };
 
-bool parseOptions(int argc, char * argv[], Args& args);
+bool parseOptions(int argc, char* argv[], Args& args);

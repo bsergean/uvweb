@@ -120,9 +120,9 @@ namespace uvweb
         client.close();
     }
 
-    HttpServer::HttpServer(const std::string& host, int port) :
-        _host(host),
-        _port(port)
+    HttpServer::HttpServer(const std::string& host, int port)
+        : _host(host)
+        , _port(port)
     {
         ;
     }
@@ -159,42 +159,42 @@ namespace uvweb
 
             parser->data = client->data().get();
 
-            client->on<uvw::DataEvent>([request, parser, &settings](const uvw::DataEvent& event,
-                                                                    uvw::TCPHandle& client) {
-                auto data = std::string(event.data.get(), event.length);
-                spdlog::trace("DataEvent: {}", data);
+            client->on<uvw::DataEvent>(
+                [request, parser, &settings](const uvw::DataEvent& event, uvw::TCPHandle& client) {
+                    auto data = std::string(event.data.get(), event.length);
+                    spdlog::trace("DataEvent: {}", data);
 
-                int nparsed = http_parser_execute(parser, &settings, event.data.get(), event.length);
+                    int nparsed =
+                        http_parser_execute(parser, &settings, event.data.get(), event.length);
 
-                if (nparsed != event.length)
-                {
-                    std::stringstream ss;
-                    ss << "HTTP Parsing Error: "
-                       << "description: " << http_errno_description(HTTP_PARSER_ERRNO(parser))
-                       << " error name " << http_errno_name(HTTP_PARSER_ERRNO(parser))
-                       << " nparsed " << nparsed
-                       << " event.length " << event.length;
+                    if (nparsed != event.length)
+                    {
+                        std::stringstream ss;
+                        ss << "HTTP Parsing Error: "
+                           << "description: " << http_errno_description(HTTP_PARSER_ERRNO(parser))
+                           << " error name " << http_errno_name(HTTP_PARSER_ERRNO(parser))
+                           << " nparsed " << nparsed << " event.length " << event.length;
 
-                    Response response;
-                    response.statusCode = 400;
-                    response.description = "KO";
-                    response.body = ss.str();
+                        Response response;
+                        response.statusCode = 400;
+                        response.description = "KO";
+                        response.body = ss.str();
 
-                    writeResponse(response, client);
-                    return;
-                }
+                        writeResponse(response, client);
+                        return;
+                    }
 
-                // Write response
-                if (request->messageComplete)
-                {
-                    Response response;
-                    response.statusCode = 200;
-                    response.description = "OK";
-                    response.body = "OK";
+                    // Write response
+                    if (request->messageComplete)
+                    {
+                        Response response;
+                        response.statusCode = 200;
+                        response.description = "OK";
+                        response.body = "OK";
 
-                    writeResponse(response, client);
-                }
-            });
+                        writeResponse(response, client);
+                    }
+                });
 
             srv.accept(*client);
             client->read();
@@ -207,4 +207,4 @@ namespace uvweb
 
         loop->run();
     }
-}
+} // namespace uvweb

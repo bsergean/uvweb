@@ -65,7 +65,7 @@ bool parseOptions(int argc, char* argv[], Args& args)
         ( "quiet", "No log", cxxopts::value<bool>()->default_value( "false" ) )
     ;
     // clang-format on
-    options.parse_positional( {"url"} );
+    options.parse_positional({"url"});
 
     try
     {
