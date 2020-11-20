@@ -331,8 +331,6 @@ namespace uvweb
                                 size_t closeWireSize,
                                 bool remote)
     {
-        spdlog::error("Close not implemented !!");
-
         if (_readyState == ReadyState::Closing || _readyState == ReadyState::Closed)
         {
             return;

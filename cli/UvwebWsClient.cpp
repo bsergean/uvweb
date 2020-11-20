@@ -32,10 +32,7 @@ int main(int argc, char* argv[])
         {
             std::cout << "received message: " << msg->str << std::endl;
 
-            if (!webSocketClient.sendText("Hello world"))
-            {
-                std::cerr << "Error sending text" << std::endl;
-            }
+            webSocketClient.close();
         }
         else if (msg->type == uvweb::WebSocketMessageType::Open)
         {
