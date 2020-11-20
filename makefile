@@ -7,6 +7,13 @@ full_build:
 			-DBUILD_TESTING=OFF \
 			-DLIBUV_BUILD_TESTS=OFF .. && ninja)
 
+xcode:
+	(cd build && \
+		cmake -GXcode -DCMAKE_BUILD_TYPE=Debug \
+			-DCXXOPTS_BUILD_EXAMPLES=OFF \
+			-DBUILD_TESTING=OFF \
+			-DLIBUV_BUILD_TESTS=OFF ..)
+
 build:
 	(cd build && ninja)
 

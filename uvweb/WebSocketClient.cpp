@@ -178,12 +178,12 @@ namespace uvweb
 
         mRequest.method = "GET";
         mRequest.path = path;
-        mRequest.host = host;
+        mRequest.host = host + ":" + std::to_string(port);
 
         // On Error
-        mClient->on<uvw::ErrorEvent>([&host, &port](const uvw::ErrorEvent& errorEvent,
-                                                    uvw::TCPHandle&) {
-            spdlog::error("Connection to {} on port {} failed : {}", host, port, errorEvent.name());
+        mClient->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent& errorEvent,
+                                            uvw::TCPHandle&) {
+            spdlog::error("Connection to {} failed : {}", mRequest.host, errorEvent.name());
 
             // FIXME: maybe call handleReadError(), ported from ix ?
         });
