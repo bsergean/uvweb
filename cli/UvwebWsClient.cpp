@@ -165,8 +165,8 @@ void autobahn(Args& args)
 
     if (testCasesCount == -1)
     {
-        spdlog::error("Cannot retrieve test case count at url {}", url);
-        return 1;
+        spdlog::error("Cannot retrieve test case count at url {}", args.url);
+        return;
     }
 
     testCasesCount++;
@@ -182,7 +182,35 @@ void autobahn(Args& args)
 
         std::string url(ss.str());
 
-        // AutobahnTestCase testCase(url, quiet);
-        // testCase.run();
+        webSocketClient.connect(url, [&testCasesCount, &webSocketClient](const uvweb::WebSocketMessagePtr& msg) {
+            if (msg->type == uvweb::WebSocketMessageType::Message)
+            {
+                webSocketClient.send(msg->str, msg->binary);
+            }
+            else if (msg->type == uvweb::WebSocketMessageType::Open)
+            {
+                spdlog::info("uvweb autobahn: connected");
+                spdlog::info("Uri: {}", msg->openInfo.uri);
+                spdlog::info("Headers:");
+                for (auto it : msg->openInfo.headers)
+                {
+                    spdlog::info("{}: {}", it.first, it.second);
+                }
+            }
+        });
+
+        loop->run();
     }
+
+    std::stringstream ss;
+    ss << args.url << "/updateReports?agent=uvweb";
+
+    webSocketClient.connect(ss.str(), [](const uvweb::WebSocketMessagePtr& msg) {
+        if (msg->type == uvweb::WebSocketMessageType::Message)
+        {
+            spdlog::info("Report generated");
+        }
+    });
+
+    loop->run();
 }
