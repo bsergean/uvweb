@@ -22,6 +22,7 @@ namespace uvweb
         std::string path;
         std::string method;
         std::string host;
+        int port;
         bool messageComplete = false;
     };
 

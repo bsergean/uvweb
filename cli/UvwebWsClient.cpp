@@ -10,6 +10,7 @@
 #include <spdlog/spdlog.h>
 
 void autoroute(Args& args);
+void autobahn(Args& args);
 
 int main(int argc, char* argv[])
 {
@@ -23,6 +24,12 @@ int main(int argc, char* argv[])
     if (args.autoroute)
     {
         autoroute(args);
+        return 0;
+    }
+
+    if (args.autobahn)
+    {
+        autobahn(args);
         return 0;
     }
 
@@ -121,3 +128,61 @@ void autoroute(Args& args)
     loop->run();
 }
 
+void autobahn(Args& args)
+{
+    std::string caseCountUrl(args.url);
+    caseCountUrl += "/getCaseCount";
+
+    int testCasesCount = -1;
+
+    uvweb::WebSocketClient webSocketClient;
+    webSocketClient.connect(caseCountUrl, [&testCasesCount, &webSocketClient](const uvweb::WebSocketMessagePtr& msg) {
+        if (msg->type == uvweb::WebSocketMessageType::Message)
+        {
+            // response is a string
+            std::stringstream ss;
+            ss << msg->str;
+            ss >> testCasesCount;
+
+            webSocketClient.close(); // ??
+        }
+        else if (msg->type == uvweb::WebSocketMessageType::Open)
+        {
+            spdlog::info("uvweb autobahn: connected");
+            spdlog::info("Uri: {}", msg->openInfo.uri);
+            spdlog::info("Headers:");
+            for (auto it : msg->openInfo.headers)
+            {
+                spdlog::info("{}: {}", it.first, it.second);
+            }
+        }
+    });
+
+    auto loop = uvw::Loop::getDefault();
+    loop->run();
+
+    std::cout << "Case count: " << testCasesCount << std::endl;
+
+    if (testCasesCount == -1)
+    {
+        spdlog::error("Cannot retrieve test case count at url {}", url);
+        return 1;
+    }
+
+    testCasesCount++;
+
+    for (int i = 1; i < testCasesCount; ++i)
+    {
+        spdlog::info("Execute test case {}", i);
+
+        int caseNumber = i;
+
+        std::stringstream ss;
+        ss << args.url << "/runCase?case=" << caseNumber << "&agent=uvweb";
+
+        std::string url(ss.str());
+
+        // AutobahnTestCase testCase(url, quiet);
+        // testCase.run();
+    }
+}

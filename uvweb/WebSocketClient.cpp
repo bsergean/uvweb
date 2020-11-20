@@ -17,6 +17,11 @@
 
 namespace uvweb
 {
+    std::string userAgent()
+    {
+        return "uvweb";
+    }
+
     int on_message_begin(http_parser*)
     {
         return 0;
@@ -176,9 +181,9 @@ namespace uvweb
 
         mHttpParser->data = mClient->data().get();
 
-        mRequest.method = "GET";
         mRequest.path = path;
-        mRequest.host = host + ":" + std::to_string(port);
+        mRequest.host = host;
+        mRequest.port = port;
 
         // On Error
         mClient->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent& errorEvent,
@@ -197,6 +202,10 @@ namespace uvweb
                 }
             });
 
+        mClient->once<uvw::WriteEvent>([](const uvw::WriteEvent &, uvw::TCPHandle& client) {
+            spdlog::debug("Data written to socket");
+        });
+
         mClient->on<uvw::DataEvent>([this, response, callback](
                                      const uvw::DataEvent& event, uvw::TCPHandle& client) {
             if (mHandshaked)
@@ -209,20 +218,8 @@ namespace uvweb
             {
                 int nparsed = http_parser_execute(mHttpParser.get(), &mSettings,
                                                   event.data.get(), event.length);
-
-                if (nparsed != event.length)
-                {
-                    std::stringstream ss;
-                    ss << "HTTP Parsing Error: "
-                       << "description: " << http_errno_description(HTTP_PARSER_ERRNO(mHttpParser))
-                       << " error name " << http_errno_name(HTTP_PARSER_ERRNO(mHttpParser)) << " nparsed "
-                       << nparsed << " event.length " << event.length;
-                    spdlog::error(ss.str());
-                    return;
-                }
-
                 // Write response
-                if (response->messageComplete && mHttpParser->upgrade)
+                if (mHttpParser->upgrade)
                 {
                     spdlog::info("HTTP Upgrade, status code: {}", response->statusCode);
 
@@ -237,11 +234,31 @@ namespace uvweb
                         "",
                         0,
                         WebSocketErrorInfo(),
-                        // FIXME empty fields
-                        // WebSocketOpenInfo(status.uri, response.headers, status.protocol),
-                        WebSocketOpenInfo(response->uri, response->headers, response->protocol),
+                        WebSocketOpenInfo(mRequest.path, response->headers, response->protocol),
                         WebSocketCloseInfo()));
+
+                    // The input buffer might already contains some non HTTP data
+                    if (nparsed < event.length)
+                    {
+                        auto offset = event.length - nparsed;
+                        std::string msg(event.data.get() + nparsed, offset);
+                        dispatch(msg, callback);
+                    }
                 }
+                else if (nparsed != event.length)
+                {
+                    std::stringstream ss;
+                    ss << "HTTP Parsing Error: "
+                       << "description: " << http_errno_description(HTTP_PARSER_ERRNO(mHttpParser))
+                       << " error name " << http_errno_name(HTTP_PARSER_ERRNO(mHttpParser)) << " nparsed "
+                       << nparsed << " event.length " << event.length;
+                    spdlog::error(ss.str());
+
+                    std::string msg(event.data.get(), event.length);
+                    spdlog::debug("Msg received: {}", msg);
+                    return;
+                }
+
             }
         });
 
@@ -253,12 +270,6 @@ namespace uvweb
     {
         // Write the request to the socket
         std::stringstream ss;
-        ss << mRequest.method;
-        ss << " ";
-        ss << mRequest.path;
-        ss << " ";
-        ss << "HTTP/1.1\r\n";
-
         //
         // Generate a random 24 bytes string which looks like it is base64 encoded
         // y3JJHMbDL1EzLkh9GBhXDw==
@@ -270,17 +281,26 @@ namespace uvweb
         secWebSocketKey += "==";
 
         // FIXME: only write those default headers if no user supplied are presents
-        ss << "Host: " << mRequest.host << "\r\n";
+        ss << "GET " << mRequest.path << " HTTP/1.1\r\n";
+        ss << "Host: " << mRequest.host << ":" << mRequest.port << "\r\n";
         ss << "Upgrade: websocket\r\n";
         ss << "Connection: Upgrade\r\n";
         ss << "Sec-WebSocket-Version: 13\r\n";
         ss << "Sec-WebSocket-Key: " << secWebSocketKey << "\r\n";
+
+        // User-Agent can be customized by users
+        if (mRequest.headers.find("User-Agent") == mRequest.headers.end())
+        {
+            ss << "User-Agent: " << userAgent() << "\r\n";
+        }
 
         for (auto&& it : mRequest.headers)
         {
             ss << it.first << ": " << it.second << "\r\n";
         }
         ss << "\r\n";
+
+        spdlog::debug(ss.str());
 
         return sendOnSocket(ss.str());
     }
