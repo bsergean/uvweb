@@ -161,6 +161,7 @@ namespace uvweb
         }
 
         auto loop = uvw::Loop::getDefault();
+        mHandshaked = false;
         mClient = loop->resource<uvw::TCPHandle>();
         mHttpParser = std::make_shared<http_parser>();
         http_parser_init(mHttpParser.get(), HTTP_RESPONSE);

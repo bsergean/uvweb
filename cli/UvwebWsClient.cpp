@@ -249,8 +249,7 @@ void shell(Args& args)
     webSocketClient.setOnMessageCallback([&webSocketClient](const uvweb::WebSocketMessagePtr& msg) {
         if (msg->type == uvweb::WebSocketMessageType::Message)
         {
-            std::cout << "received message: " << msg->str << std::endl;
-            // webSocketClient.close();
+            std::cout << "Received message: " << msg->str << std::endl;
         }
         else if (msg->type == uvweb::WebSocketMessageType::Open)
         {
@@ -258,7 +257,7 @@ void shell(Args& args)
         }
         else if (msg->type == uvweb::WebSocketMessageType::Close)
         {
-            std::cout << "Connection closed" << std::endl;
+            std::cout << "Connection closed. Type Ctrl^D to exit." << std::endl;
         }
     });
 
@@ -268,21 +267,25 @@ void shell(Args& args)
     auto handle = loop->resource<uvw::TTYHandle>(uvw::StdIN, true);
     if (!handle->init())
     {
-        spdlog::info("cannot init handle");
+        spdlog::info("Cannot init handle");
         return;
     }
     if (!handle->mode(uvw::TTYHandle::Mode::NORMAL))
     {
-        spdlog::info("cannot set mode");
+        spdlog::info("Cannot set tty mode");
         return;
     }
 
-    handle->on<uvw::DataEvent>([&webSocketClient](const auto & event, auto &hndl){
+    handle->on<uvw::DataEvent>([&webSocketClient, &args](const auto & event, auto &hndl){
         std::string msg(event.data.get(), event.length);
 
         if (msg == "/close\n")
         {
             webSocketClient.close();
+        }
+        else if (msg == "/connect\n")
+        {
+            webSocketClient.connect(args.url);
         }
         else
         {

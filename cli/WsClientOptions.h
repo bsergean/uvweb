@@ -22,3 +22,4 @@ struct Args
 };
 
 bool parseOptions(int argc, char* argv[], Args& args);
+void setupLogging(const Args& args);
