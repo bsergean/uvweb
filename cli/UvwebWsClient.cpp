@@ -11,6 +11,7 @@
 
 void autoroute(Args& args);
 void autobahn(Args& args);
+void shell(Args& args);
 
 int main(int argc, char* argv[])
 {
@@ -33,8 +34,14 @@ int main(int argc, char* argv[])
         return 0;
     }
 
+    if (args.shell)
+    {
+        shell(args);
+        return 0;
+    }
+
     uvweb::WebSocketClient webSocketClient;
-    webSocketClient.connect(args.url, [&webSocketClient](const uvweb::WebSocketMessagePtr& msg) {
+    webSocketClient.setOnMessageCallback([&webSocketClient](const uvweb::WebSocketMessagePtr& msg) {
         if (msg->type == uvweb::WebSocketMessageType::Message)
         {
             std::cout << "received message: " << msg->str << std::endl;
@@ -50,6 +57,7 @@ int main(int argc, char* argv[])
             }
         }
     });
+    webSocketClient.connect(args.url);
 
     auto loop = uvw::Loop::getDefault();
     loop->run();
@@ -59,10 +67,6 @@ int main(int argc, char* argv[])
 
 void autoroute(Args& args)
 {
-    std::string fullUrl(args.url);
-    fullUrl += "/";
-    fullUrl += std::to_string(args.msgCount);
-
     std::atomic<uint64_t> receivedCountPerSecs(0);
     std::atomic<bool> stop(false);
 
@@ -70,7 +74,7 @@ void autoroute(Args& args)
     std::chrono::time_point<std::chrono::high_resolution_clock> start;
 
     uvweb::WebSocketClient webSocketClient;
-    webSocketClient.connect(fullUrl, [&receivedCountPerSecs, &webSocketClient, &target, &start](const uvweb::WebSocketMessagePtr& msg) {
+    webSocketClient.setOnMessageCallback([&receivedCountPerSecs, &webSocketClient, &target, &start](const uvweb::WebSocketMessagePtr& msg) {
         if (msg->type == uvweb::WebSocketMessageType::Message)
         {
             receivedCountPerSecs++;
@@ -102,6 +106,11 @@ void autoroute(Args& args)
         }
     });
 
+    std::string fullUrl(args.url);
+    fullUrl += "/";
+    fullUrl += std::to_string(args.msgCount);
+    webSocketClient.connect(fullUrl);
+
     auto timer = [&receivedCountPerSecs, &stop] {
         while (!stop)
         {
@@ -130,13 +139,10 @@ void autoroute(Args& args)
 
 void autobahn(Args& args)
 {
-    std::string caseCountUrl(args.url);
-    caseCountUrl += "/getCaseCount";
-
     int testCasesCount = -1;
 
     uvweb::WebSocketClient webSocketClient;
-    webSocketClient.connect(caseCountUrl, [&testCasesCount, &webSocketClient](const uvweb::WebSocketMessagePtr& msg) {
+    webSocketClient.setOnMessageCallback([&testCasesCount, &webSocketClient](const uvweb::WebSocketMessagePtr& msg) {
         if (msg->type == uvweb::WebSocketMessageType::Message)
         {
             // response is a string
@@ -157,6 +163,9 @@ void autobahn(Args& args)
             }
         }
     });
+    std::string caseCountUrl(args.url);
+    caseCountUrl += "/getCaseCount";
+    webSocketClient.connect(caseCountUrl);
 
     auto loop = uvw::Loop::getDefault();
     loop->run();
@@ -182,10 +191,11 @@ void autobahn(Args& args)
 
         std::string url(ss.str());
 
-        webSocketClient.connect(url, [&testCasesCount, &webSocketClient](const uvweb::WebSocketMessagePtr& msg) {
+        uvweb::WebSocketClient wsClient;
+        wsClient.setOnMessageCallback([&testCasesCount, &wsClient](const uvweb::WebSocketMessagePtr& msg) {
             if (msg->type == uvweb::WebSocketMessageType::Message)
             {
-                webSocketClient.send(msg->str, msg->binary);
+                wsClient.send(msg->str, msg->binary);
             }
             else if (msg->type == uvweb::WebSocketMessageType::Open)
             {
@@ -198,19 +208,92 @@ void autobahn(Args& args)
                 }
             }
         });
+        wsClient.connect(url);
 
         loop->run();
     }
 
+    spdlog::info("Generate report");
+
     std::stringstream ss;
     ss << args.url << "/updateReports?agent=uvweb";
 
-    webSocketClient.connect(ss.str(), [](const uvweb::WebSocketMessagePtr& msg) {
+    webSocketClient.setOnMessageCallback([&webSocketClient](const uvweb::WebSocketMessagePtr& msg) {
         if (msg->type == uvweb::WebSocketMessageType::Message)
         {
             spdlog::info("Report generated");
         }
     });
+    webSocketClient.connect(ss.str());
 
+    loop->run();
+}
+
+// 
+// Using a timer ...
+//
+// auto timer = loop->resource<uvw::TimerHandle>();
+// timer->on<uvw::TimerEvent>([handle](const auto &, auto &hndl){
+//     // auto data = std::make_unique<char[]>('*');
+//     // handle->write(std::move(data), 1);
+//     // hndl.close();
+// });
+// timer->start(uvw::TimerHandle::Time{0}, uvw::TimerHandle::Time{1000});
+//     
+
+void shell(Args& args)
+{
+    auto loop = uvw::Loop::getDefault();
+
+    uvweb::WebSocketClient webSocketClient;
+    webSocketClient.setOnMessageCallback([&webSocketClient](const uvweb::WebSocketMessagePtr& msg) {
+        if (msg->type == uvweb::WebSocketMessageType::Message)
+        {
+            std::cout << "received message: " << msg->str << std::endl;
+            // webSocketClient.close();
+        }
+        else if (msg->type == uvweb::WebSocketMessageType::Open)
+        {
+            std::cout << "Connection established" << std::endl;
+        }
+        else if (msg->type == uvweb::WebSocketMessageType::Close)
+        {
+            std::cout << "Connection closed" << std::endl;
+        }
+    });
+
+    webSocketClient.connect(args.url);
+
+    // Retrieve typed data
+    auto handle = loop->resource<uvw::TTYHandle>(uvw::StdIN, true);
+    if (!handle->init())
+    {
+        spdlog::info("cannot init handle");
+        return;
+    }
+    if (!handle->mode(uvw::TTYHandle::Mode::NORMAL))
+    {
+        spdlog::info("cannot set mode");
+        return;
+    }
+
+    handle->on<uvw::DataEvent>([&webSocketClient](const auto & event, auto &hndl){
+        std::string msg(event.data.get(), event.length);
+
+        if (msg == "/close\n")
+        {
+            webSocketClient.close();
+        }
+        else
+        {
+            if (!webSocketClient.sendText(msg))
+            {
+                // if the connection is closed sending should fail
+                std::cerr << "Error sending text" << std::endl;
+            }
+        }
+    });
+
+    handle->read();
     loop->run();
 }

@@ -147,7 +147,7 @@ namespace uvweb
         mSettings.on_body = on_body;
     }
 
-    void WebSocketClient::connect(const std::string& url, const OnMessageCallback& callback)
+    void WebSocketClient::connect(const std::string& url)
     {
         std::string protocol, host, path, query;
         int port;
@@ -206,13 +206,13 @@ namespace uvweb
             spdlog::debug("Data written to socket");
         });
 
-        mClient->on<uvw::DataEvent>([this, response, callback](
+        mClient->on<uvw::DataEvent>([this, response](
                                      const uvw::DataEvent& event, uvw::TCPHandle& client) {
             if (mHandshaked)
             {
                 spdlog::debug("Received {} bytes", event.length);
                 std::string msg(event.data.get(), event.length);
-                dispatch(msg, callback);
+                dispatch(msg);
             }
             else
             {
@@ -229,7 +229,7 @@ namespace uvweb
                     setReadyState(ReadyState::Open);
 
                     // emit connected callback
-                    callback(std::make_unique<WebSocketMessage>(
+                    invokeOnMessageCallback(std::make_unique<WebSocketMessage>(
                         WebSocketMessageType::Open,
                         "",
                         0,
@@ -242,7 +242,7 @@ namespace uvweb
                     {
                         auto offset = event.length - nparsed;
                         std::string msg(event.data.get() + nparsed, offset);
-                        dispatch(msg, callback);
+                        dispatch(msg);
                     }
                 }
                 else if (nparsed != event.length)
@@ -610,6 +610,34 @@ namespace uvweb
 
     void WebSocketClient::setReadyState(ReadyState readyState)
     {
+        // No state change, return
+        if (_readyState == readyState) return;
+
+        auto wireSize = 0;
+
+        if (readyState == ReadyState::Closed)
+        {
+            invokeOnMessageCallback(
+                std::make_unique<WebSocketMessage>(WebSocketMessageType::Close,
+                        "",
+                        wireSize,
+                        WebSocketErrorInfo(),
+                        WebSocketOpenInfo(),
+                        WebSocketCloseInfo(_closeCode, getCloseReason(), _closeRemote)));
+
+            setCloseReason(WebSocketCloseConstants::kInternalErrorMessage);
+            _closeCode = WebSocketCloseConstants::kInternalErrorCode;
+            _closeWireSize = 0;
+            _closeRemote = false;
+        }
+        else if (readyState == ReadyState::Open)
+        {
+#if 0
+            // initTimePointsAfterConnect();
+#endif
+            _pongReceived = false;
+        }
+
         _readyState = readyState;
     }
 
@@ -635,8 +663,7 @@ namespace uvweb
     // |                     Payload Data continued ...                |
     // +---------------------------------------------------------------+
     //
-    void WebSocketClient::dispatch(const std::string& buffer,
-                                   const OnMessageCallback& onMessageCallback)
+    void WebSocketClient::dispatch(const std::string& buffer)
     {
         //
         // Append the incoming data to our _rxbuf receive buffer.
@@ -780,8 +807,7 @@ namespace uvweb
                 {
                     emitMessage(_fragmentedMessageKind,
                                 frameData,
-                                _receivedMessageCompressed,
-                                onMessageCallback);
+                                _receivedMessageCompressed);
 
                     _receivedMessageCompressed = false;
                 }
@@ -800,15 +826,14 @@ namespace uvweb
                     {
                         emitMessage(_fragmentedMessageKind,
                                     getMergedChunks(),
-                                    _receivedMessageCompressed,
-                                    onMessageCallback);
+                                    _receivedMessageCompressed);
 
                         _chunks.clear();
                         _receivedMessageCompressed = false;
                     }
                     else
                     {
-                        emitMessage(MessageKind::FRAGMENT, std::string(), false, onMessageCallback);
+                        emitMessage(MessageKind::FRAGMENT, std::string(), false);
                     }
                 }
             }
@@ -830,12 +855,12 @@ namespace uvweb
                     sendData(wsheader_type::PONG, frameData, compress);
                 }
 
-                emitMessage(MessageKind::PING, frameData, false, onMessageCallback);
+                emitMessage(MessageKind::PING, frameData, false);
             }
             else if (ws.opcode == wsheader_type::PONG)
             {
                 _pongReceived = true;
-                emitMessage(MessageKind::PONG, frameData, false, onMessageCallback);
+                emitMessage(MessageKind::PONG, frameData, false);
             }
             else if (ws.opcode == wsheader_type::CLOSE)
             {
@@ -966,8 +991,7 @@ namespace uvweb
 
     void WebSocketClient::emitMessage(MessageKind messageKind,
                                       const std::string& message,
-                                      bool compressedMessage,
-                                      const OnMessageCallback& onMessageCallback)
+                                      bool compressedMessage)
     {
         WebSocketMessageType webSocketMessageType;
         switch (messageKind)
@@ -1003,13 +1027,13 @@ namespace uvweb
         bool binary = messageKind == MessageKind::MSG_BINARY;
         size_t wireSize = message.size(); // FIXME zlib compression support
 
-        onMessageCallback(std::make_unique<WebSocketMessage>(webSocketMessageType,
-                                                             message,
-                                                             wireSize,
-                                                             webSocketErrorInfo,
-                                                             WebSocketOpenInfo(),
-                                                             WebSocketCloseInfo(),
-                                                             binary));
+        invokeOnMessageCallback(std::make_unique<WebSocketMessage>(webSocketMessageType,
+                                                                   message,
+                                                                   wireSize,
+                                                                   webSocketErrorInfo,
+                                                                   WebSocketOpenInfo(),
+                                                                   WebSocketCloseInfo(),
+                                                                   binary));
     }
 
     void WebSocketClient::setCloseReason(const std::string& reason)
@@ -1020,5 +1044,15 @@ namespace uvweb
     const std::string& WebSocketClient::getCloseReason() const
     {
         return _closeReason;
+    }
+
+    void WebSocketClient::setOnMessageCallback(const OnMessageCallback& callback)
+    {
+        _onMessageCallback = callback;
+    }
+
+    void WebSocketClient::invokeOnMessageCallback(const WebSocketMessagePtr& msg)
+    {
+        _onMessageCallback(msg);
     }
 } // namespace uvweb

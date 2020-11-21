@@ -56,6 +56,7 @@ bool parseOptions(int argc, char* argv[], Args& args)
         ( "autoroute", "Autoroute mode", cxxopts::value<bool>()->default_value( "false" ) )
         ( "msg_count", "Autoroute message count", cxxopts::value<int>()->default_value( "1000000" ) )
         ( "autobahn", "Autobahn mode", cxxopts::value<bool>()->default_value( "false" ) )
+        ( "shell", "Shell mode", cxxopts::value<bool>()->default_value( "false" ) )
         ( "h,help", "Print usage" )
 
         // Log levels
@@ -90,6 +91,7 @@ bool parseOptions(int argc, char* argv[], Args& args)
         args.autoroute = result["autoroute"].as<bool>();
         args.msgCount = result["msg_count"].as<int>();
         args.autobahn = result["autobahn"].as<bool>();
+        args.shell = result["shell"].as<bool>();
         
         args.traceLevel = result["trace"].as<bool>();
         args.debugLevel = result["debug"].as<bool>();

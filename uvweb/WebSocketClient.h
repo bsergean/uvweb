@@ -61,8 +61,11 @@ namespace uvweb
     {
     public:
         WebSocketClient();
-        void connect(const std::string& url,
-                     const OnMessageCallback& callback);
+
+        void setOnMessageCallback(const OnMessageCallback& callback);
+        void invokeOnMessageCallback(const WebSocketMessagePtr& msg);
+
+        void connect(const std::string& url);
 
         bool send(const std::string& data, bool binary);
         bool sendBinary(const std::string& text);
@@ -137,13 +140,11 @@ namespace uvweb
         //
         // Receiving data
         //
-        void dispatch(const std::string& buffer,
-                      const OnMessageCallback& onMessageCallback);
+        void dispatch(const std::string& buffer);
 
         void emitMessage(MessageKind messageKind,
                          const std::string& message,
-                         bool compressedMessage,
-                         const OnMessageCallback& onMessageCallback);
+                         bool compressedMessage);
 
         std::string getMergedChunks() const;
 
@@ -172,6 +173,9 @@ namespace uvweb
         http_parser_settings mSettings;
 
         Request mRequest;
+
+        // 'the' callback
+        OnMessageCallback _onMessageCallback;
 
         // Fragments are 32K long
         static constexpr size_t kChunkSize = 1 << 15;

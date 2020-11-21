@@ -9,6 +9,7 @@ struct Args
     int msgCount = 1000000;
     bool autoroute = false;
     bool autobahn = false;
+    bool shell = false;
 
     // Log levels
     bool traceLevel = false;
