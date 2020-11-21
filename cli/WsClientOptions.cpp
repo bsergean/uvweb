@@ -92,7 +92,7 @@ bool parseOptions(int argc, char* argv[], Args& args)
         args.msgCount = result["msg_count"].as<int>();
         args.autobahn = result["autobahn"].as<bool>();
         args.shell = result["shell"].as<bool>();
-        
+
         args.traceLevel = result["trace"].as<bool>();
         args.debugLevel = result["debug"].as<bool>();
         args.infoLevel = result["info"].as<bool>();

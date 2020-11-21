@@ -28,4 +28,4 @@ namespace uvweb
     const std::string WebSocketCloseConstants::kInvalidFramePayloadDataMessage(
         "Invalid frame payload data");
     const std::string WebSocketCloseConstants::kInvalidCloseCodeMessage("Invalid close code");
-}
+} // namespace uvweb

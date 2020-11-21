@@ -6,6 +6,7 @@
 #include "UrlParser.h"
 #include "Utf8Validator.h"
 #include "gzip.h"
+#include <chrono>
 #include <cstring>
 #include <iostream>
 #include <map>
@@ -13,7 +14,6 @@
 #include <random>
 #include <spdlog/spdlog.h>
 #include <sstream>
-#include <chrono>
 
 namespace uvweb
 {
@@ -187,28 +187,26 @@ namespace uvweb
         mRequest.port = port;
 
         // On Error
-        mClient->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent& errorEvent,
-                                            uvw::TCPHandle&) {
+        mClient->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle&) {
             spdlog::error("Connection to {} failed : {}", mRequest.host, errorEvent.name());
 
             // FIXME: maybe call handleReadError(), ported from ix ?
         });
 
         // On connect
-        mClient->once<uvw::ConnectEvent>(
-            [this](const uvw::ConnectEvent&, uvw::TCPHandle&) {
-                if (!writeHandshakeRequest())
-                {
-                    spdlog::error("Error sending handshake");
-                }
-            });
+        mClient->once<uvw::ConnectEvent>([this](const uvw::ConnectEvent&, uvw::TCPHandle&) {
+            if (!writeHandshakeRequest())
+            {
+                spdlog::error("Error sending handshake");
+            }
+        });
 
-        mClient->once<uvw::WriteEvent>([](const uvw::WriteEvent &, uvw::TCPHandle& client) {
+        mClient->once<uvw::WriteEvent>([](const uvw::WriteEvent&, uvw::TCPHandle& client) {
             spdlog::debug("Data written to socket");
         });
 
-        mClient->on<uvw::DataEvent>([this, response](
-                                     const uvw::DataEvent& event, uvw::TCPHandle& client) {
+        mClient->on<uvw::DataEvent>([this, response](const uvw::DataEvent& event,
+                                                     uvw::TCPHandle& client) {
             if (mHandshaked)
             {
                 spdlog::debug("Received {} bytes", event.length);
@@ -217,8 +215,8 @@ namespace uvweb
             }
             else
             {
-                int nparsed = http_parser_execute(mHttpParser.get(), &mSettings,
-                                                  event.data.get(), event.length);
+                int nparsed = http_parser_execute(
+                    mHttpParser.get(), &mSettings, event.data.get(), event.length);
                 // Write response
                 if (mHttpParser->upgrade)
                 {
@@ -251,15 +249,14 @@ namespace uvweb
                     std::stringstream ss;
                     ss << "HTTP Parsing Error: "
                        << "description: " << http_errno_description(HTTP_PARSER_ERRNO(mHttpParser))
-                       << " error name " << http_errno_name(HTTP_PARSER_ERRNO(mHttpParser)) << " nparsed "
-                       << nparsed << " event.length " << event.length;
+                       << " error name " << http_errno_name(HTTP_PARSER_ERRNO(mHttpParser))
+                       << " nparsed " << nparsed << " event.length " << event.length;
                     spdlog::error(ss.str());
 
                     std::string msg(event.data.get(), event.length);
                     spdlog::debug("Msg received: {}", msg);
                     return;
                 }
-
             }
         });
 
@@ -618,13 +615,13 @@ namespace uvweb
 
         if (readyState == ReadyState::Closed)
         {
-            invokeOnMessageCallback(
-                std::make_unique<WebSocketMessage>(WebSocketMessageType::Close,
-                        "",
-                        wireSize,
-                        WebSocketErrorInfo(),
-                        WebSocketOpenInfo(),
-                        WebSocketCloseInfo(_closeCode, getCloseReason(), _closeRemote)));
+            invokeOnMessageCallback(std::make_unique<WebSocketMessage>(
+                WebSocketMessageType::Close,
+                "",
+                wireSize,
+                WebSocketErrorInfo(),
+                WebSocketOpenInfo(),
+                WebSocketCloseInfo(_closeCode, getCloseReason(), _closeRemote)));
 
             setCloseReason(WebSocketCloseConstants::kInternalErrorMessage);
             _closeCode = WebSocketCloseConstants::kInternalErrorCode;
@@ -806,9 +803,7 @@ namespace uvweb
                 //
                 if (ws.fin && _chunks.empty())
                 {
-                    emitMessage(_fragmentedMessageKind,
-                                frameData,
-                                _receivedMessageCompressed);
+                    emitMessage(_fragmentedMessageKind, frameData, _receivedMessageCompressed);
 
                     _receivedMessageCompressed = false;
                 }
@@ -825,9 +820,8 @@ namespace uvweb
 
                     if (ws.fin)
                     {
-                        emitMessage(_fragmentedMessageKind,
-                                    getMergedChunks(),
-                                    _receivedMessageCompressed);
+                        emitMessage(
+                            _fragmentedMessageKind, getMergedChunks(), _receivedMessageCompressed);
 
                         _chunks.clear();
                         _receivedMessageCompressed = false;
