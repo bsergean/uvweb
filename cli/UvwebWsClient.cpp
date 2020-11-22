@@ -156,12 +156,12 @@ void autobahn(Args& args)
             }
             else if (msg->type == uvweb::WebSocketMessageType::Open)
             {
-                spdlog::info("uvweb autobahn: connected");
-                spdlog::info("Uri: {}", msg->openInfo.uri);
-                spdlog::info("Headers:");
+                spdlog::debug("uvweb autobahn: connected");
+                spdlog::debug("Uri: {}", msg->openInfo.uri);
+                spdlog::debug("Headers:");
                 for (auto it : msg->openInfo.headers)
                 {
-                    spdlog::info("{}: {}", it.first, it.second);
+                    spdlog::debug("{}: {}", it.first, it.second);
                 }
             }
         });
@@ -184,7 +184,7 @@ void autobahn(Args& args)
 
     for (int i = 1; i < testCasesCount; ++i)
     {
-        spdlog::info("Execute test case {}", i);
+        std::cout << "Execute test case " << i << std::endl;
 
         int caseNumber = i;
 
@@ -202,12 +202,12 @@ void autobahn(Args& args)
                 }
                 else if (msg->type == uvweb::WebSocketMessageType::Open)
                 {
-                    spdlog::info("uvweb autobahn: connected");
-                    spdlog::info("Uri: {}", msg->openInfo.uri);
-                    spdlog::info("Headers:");
+                    spdlog::debug("uvweb autobahn: connected");
+                    spdlog::debug("Uri: {}", msg->openInfo.uri);
+                    spdlog::debug("Headers:");
                     for (auto it : msg->openInfo.headers)
                     {
-                        spdlog::info("{}: {}", it.first, it.second);
+                        spdlog::debug("{}: {}", it.first, it.second);
                     }
                 }
             });
@@ -224,7 +224,7 @@ void autobahn(Args& args)
     webSocketClient.setOnMessageCallback([&webSocketClient](const uvweb::WebSocketMessagePtr& msg) {
         if (msg->type == uvweb::WebSocketMessageType::Message)
         {
-            spdlog::info("Report generated");
+            std::cout << "Report generated" << std::endl;
         }
     });
     webSocketClient.connect(ss.str());
