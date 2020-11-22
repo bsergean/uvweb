@@ -18,3 +18,10 @@ target_link_libraries(uvweb-client uvweb cxxopts)
 add_executable(uvweb-ws-client)
 target_sources(uvweb-ws-client PRIVATE WsClientOptions.cpp UvwebWsClient.cpp)
 target_link_libraries(uvweb-ws-client uvweb cxxopts)
+
+#
+# pulsar client
+#
+add_executable(uvweb-pulsar-client)
+target_sources(uvweb-pulsar-client PRIVATE PulsarOptions.cpp UvPulsarClient.cpp)
+target_link_libraries(uvweb-pulsar-client uvweb cxxopts)

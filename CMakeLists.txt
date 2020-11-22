@@ -78,6 +78,7 @@ target_sources(uvweb PRIVATE
   uvweb/WebSocketClient.cpp
   uvweb/WebSocketCloseConstants.cpp
   uvweb/StrCaseCompare.cpp
+  uvweb/PulsarClient.cpp
 )
 
 target_compile_definitions(uvweb PRIVATE SPDLOG_COMPILED_LIB=1)
