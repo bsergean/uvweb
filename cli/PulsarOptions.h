@@ -9,9 +9,12 @@ struct Args
     std::string url;
     std::string tenant;
     std::string nameSpace;
+    std::string subscription;
 
     std::vector<std::string> topics;
     std::vector<std::string> messages;
+
+    bool subscribe = false;
 
     // Log levels
     bool traceLevel = false;

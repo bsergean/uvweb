@@ -58,7 +58,9 @@ bool parseOptions(int argc, char* argv[], Args& args)
         ( "tenant", "tenant", cxxopts::value<std::string>() )
         ( "n,namespace", "Namespace", cxxopts::value<std::string>() )
         ( "t,topic", "Topic", cxxopts::value<std::string>() )
+        ( "subscription", "Subscription", cxxopts::value<std::string>() )
         ( "repeat", "Repeat", cxxopts::value<int>() )
+        ( "s,subscribe", "Subscribe", cxxopts::value<bool>()->default_value( "false" ) )
         ( "h,help", "Print usage" )
 
         // Log levels
@@ -105,7 +107,7 @@ bool parseOptions(int argc, char* argv[], Args& args)
             return false;
         }
 
-        if (result.count("msg") == 0)
+        if (result.count("subscribe") == 0 && result.count("msg") == 0)
         {
             std::cerr << "Error: a msg is required." << std::endl;
             return false;
@@ -114,22 +116,39 @@ bool parseOptions(int argc, char* argv[], Args& args)
         args.url = result["url"].as<std::string>();
         args.tenant = result["tenant"].as<std::string>();
         args.nameSpace = result["namespace"].as<std::string>();
+        args.subscribe = result["subscribe"].as<bool>();
 
-        auto msg = result["msg"].as<std::string>();
         auto topic = result["topic"].as<std::string>();
 
-        if (result.count("repeat") > 0)
+        // Publish
+        if (result.count("subscribe") == 0)
         {
-            auto count = result["repeat"].as<int>();
-            for (int i = 0; i < count ; ++i)
+            auto msg = result["msg"].as<std::string>();
+            if (result.count("repeat") > 0)
+            {
+                auto count = result["repeat"].as<int>();
+                for (int i = 0; i < count ; ++i)
+                {
+                    args.messages.push_back(msg);
+                    args.topics.push_back(topic);
+                }
+            }
+            else
             {
                 args.messages.push_back(msg);
                 args.topics.push_back(topic);
             }
         }
-        else
+        // Subscribe
+        else if (result.count("subscribe") > 0)
         {
-            args.messages.push_back(msg);
+            if (result.count("subscription") == 0)
+            {
+                std::cerr << "Error: a subscription is required." << std::endl;
+                return false;
+            }
+
+            args.subscription = result["subscription"].as<std::string>();
             args.topics.push_back(topic);
         }
 

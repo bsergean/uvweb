@@ -16,16 +16,31 @@ int main(int argc, char* argv[])
 
     uvweb::PulsarClient pulsarClient(args.url);
 
-    for (int i = 0; i < args.messages.size(); ++i)
+    if (args.subscribe)
     {
-        pulsarClient.send(args.messages[i],
-                          args.tenant,
-                          args.nameSpace,
-                          args.topics[i],
-                          [](bool success, const std::string& messageId) {
-                              std::cout << "Publish successful: " << success
-                                        << " message id: " << messageId << std::endl;
-                          });
+        pulsarClient.subscribe(args.tenant,
+                               args.nameSpace,
+                               args.topics[0],
+                               args.subscription,
+                               [](const std::string& msg, const std::string& messageId) -> bool {
+                                   std::cout << "Got message " << msg
+                                             << " message id: " << messageId << std::endl;
+                                   return true;
+                               });
+    }
+    else
+    {
+        for (int i = 0; i < args.messages.size(); ++i)
+        {
+            pulsarClient.publish(args.messages[i],
+                                 args.tenant,
+                                 args.nameSpace,
+                                 args.topics[i],
+                                 [](bool success, const std::string& messageId) {
+                                     std::cout << "Publish successful: " << success
+                                               << " message id: " << messageId << std::endl;
+                                 });
+        }
     }
 
     auto loop = uvw::Loop::getDefault();

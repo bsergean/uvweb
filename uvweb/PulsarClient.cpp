@@ -1,4 +1,9 @@
 
+//
+// Talks to a Pulsar WebSocket Broker
+// See https://pulsar.apache.org/docs/en/client-libraries-websocket/
+//
+
 #include "PulsarClient.h"
 
 #include "Base64.h"
@@ -15,11 +20,11 @@ namespace uvweb
         createQueueProcessor();
     }
 
-    void PulsarClient::send(const std::string& str,
-                            const std::string& tenant,
-                            const std::string& nameSpace,
-                            const std::string& topic,
-                            const OnResponseCallback& callback)
+    void PulsarClient::publish(const std::string& str,
+                               const std::string& tenant,
+                               const std::string& nameSpace,
+                               const std::string& topic,
+                               const OnPublishResponseCallback& callback)
     {
         //
         // ws://broker-service-url:8080/ws/v2/producer/persistent/:tenant/:namespace/:topic
@@ -31,7 +36,7 @@ namespace uvweb
 
         // Keep track of the callback
         auto context = createContext();
-        _callbacks[context] = callback;
+        _publishCallbacks[context] = callback;
 
         auto [hasClient, webSocketClient] = getWebSocketClient(url);
         if (!hasClient)
@@ -39,7 +44,7 @@ namespace uvweb
             webSocketClient->setOnMessageCallback([this](const uvweb::WebSocketMessagePtr& msg) {
                 if (msg->type == uvweb::WebSocketMessageType::Message)
                 {
-                    processReceivedMessage(msg->str);
+                    processProducerReceivedMessage(msg->str);
                 }
                 else if (msg->type == uvweb::WebSocketMessageType::Open)
                 {
@@ -56,6 +61,44 @@ namespace uvweb
 
         auto serializedMsg = serializePublishMessage(str, context);
         _queue.push({url, serializedMsg});
+    }
+
+    void PulsarClient::subscribe(const std::string& tenant,
+                                 const std::string& nameSpace,
+                                 const std::string& topic,
+                                 const std::string& subscription,
+                                 const OnSubscribeResponseCallback& callback)
+    {
+        //
+        // TOPIC = 'ws://localhost:8080/ws/v2/consumer/persistent/public/default/my-topic/my-sub'
+        //
+        std::stringstream ss;
+        ss << _baseUrl << "/ws/v2/consumer/persistent/" << tenant << "/" << nameSpace << "/"
+           << topic << "/" << subscription;
+        std::string url(ss.str());
+
+        auto [hasClient, webSocketClient] = getWebSocketClient(url);
+        if (!hasClient) // FIXME: how do we handle multiple subscriptions ?
+        {
+            webSocketClient->setOnMessageCallback(
+                [this, callback, url](const uvweb::WebSocketMessagePtr& msg) {
+                    if (msg->type == uvweb::WebSocketMessageType::Message)
+                    {
+                        auto [hasClient, webSocketClient] = getWebSocketClient(url);
+                        processConsumerReceivedMessage(msg->str, callback, webSocketClient);
+                    }
+                    else if (msg->type == uvweb::WebSocketMessageType::Open)
+                    {
+                        spdlog::debug("Connection to {} established", _baseUrl);
+                    }
+                    else if (msg->type == uvweb::WebSocketMessageType::Close)
+                    {
+                        spdlog::debug("Connection to {} closed", _baseUrl);
+                    }
+                });
+
+            webSocketClient->connect(url);
+        }
     }
 
     std::string PulsarClient::createContext()
@@ -87,7 +130,7 @@ namespace uvweb
         return data.dump();
     }
 
-    void PulsarClient::processReceivedMessage(const std::string& str)
+    void PulsarClient::processProducerReceivedMessage(const std::string& str)
     {
         spdlog::debug("received message: {}", str);
 
@@ -111,12 +154,12 @@ namespace uvweb
         }
 
         auto context = pdu.value("context", "n/a");
-        auto it = _callbacks.find(context);
-        if (it != _callbacks.end())
+        auto it = _publishCallbacks.find(context);
+        if (it != _publishCallbacks.end())
         {
             auto callback = it->second;
             callback(true, pdu.value("messageId", "n/a"));
-            _callbacks.erase(context);
+            _publishCallbacks.erase(context);
         }
         else
         {
@@ -148,5 +191,41 @@ namespace uvweb
             }
         });
         _timer->start(uvw::TimerHandle::Time {0}, uvw::TimerHandle::Time {100});
+    }
+
+    void PulsarClient::processConsumerReceivedMessage(
+        const std::string& str,
+        const OnSubscribeResponseCallback& callback,
+        std::shared_ptr<WebSocketClient> webSocketClient)
+    {
+        spdlog::debug("received message: {}", str);
+
+        nlohmann::json pdu;
+        try
+        {
+            pdu = nlohmann::json::parse(str);
+            spdlog::debug("message is valid json");
+        }
+        catch (const nlohmann::json::parse_error& e)
+        {
+            spdlog::error("malformed json pdu: {}, error: {}", str, e.what());
+            return;
+        }
+
+        auto payload = pdu.value("payload", "n/a"); // FIXME a
+        payload = base64_decode(payload);
+
+        auto messageId = pdu.value("messageId", "n/a");
+
+        if (callback(payload, messageId))
+        {
+            nlohmann::json data = {{"messageId", messageId}};
+
+            // Acknowledge message
+            if (!webSocketClient->sendText(data.dump()))
+            {
+                spdlog::error("Error acknowledging message id {}", messageId);
+            }
+        }
     }
 } // namespace uvweb
