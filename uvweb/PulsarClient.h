@@ -43,6 +43,7 @@ namespace uvweb
         std::string _baseUrl;
         uint64_t _mId;
 
+        // We could have multiple queues per topic
         std::queue<std::pair<std::string, std::string>> _queue;
 
         std::shared_ptr<uvw::TimerHandle> _timer;

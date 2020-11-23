@@ -63,7 +63,8 @@ namespace uvweb
         return std::to_string(_mId++);
     }
 
-    std::pair<bool, std::shared_ptr<WebSocketClient>> PulsarClient::getWebSocketClient(const std::string& key)
+    std::pair<bool, std::shared_ptr<WebSocketClient>> PulsarClient::getWebSocketClient(
+        const std::string& key)
     {
         auto it = _clients.find(key);
         if (it != _clients.end())
@@ -76,9 +77,8 @@ namespace uvweb
         return {false, client};
     }
 
-    std::string PulsarClient::serializePublishMessage(
-        const std::string& str,
-        const std::string& context)
+    std::string PulsarClient::serializePublishMessage(const std::string& str,
+                                                      const std::string& context)
     {
         std::string payload = base64_encode(str, str.size());
         nlohmann::json data = {
@@ -129,11 +129,7 @@ namespace uvweb
         auto loop = uvw::Loop::getDefault();
         _timer = loop->resource<uvw::TimerHandle>();
 
-        _timer->on<uvw::TimerEvent>([this](const auto &, auto &hndl){
-            // auto data = std::make_unique<char[]>('*');
-            // handle->write(std::move(data), 1);
-            // hndl.close();
-
+        _timer->on<uvw::TimerEvent>([this](const auto&, auto& hndl) {
             while (!_queue.empty())
             {
                 auto item = _queue.front();
@@ -151,6 +147,6 @@ namespace uvweb
                 }
             }
         });
-        _timer->start(uvw::TimerHandle::Time{0}, uvw::TimerHandle::Time{100});
+        _timer->start(uvw::TimerHandle::Time {0}, uvw::TimerHandle::Time {100});
     }
 } // namespace uvweb
