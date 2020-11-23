@@ -25,6 +25,18 @@ FetchContent_Declare(spdlog
 
 FetchContent_MakeAvailable(spdlog)
 
+# jsoncpp
+FetchContent_Declare(json
+  GIT_REPOSITORY https://github.com/ArthurSonzogni/nlohmann_json_cmake_fetchcontent
+  GIT_TAG v3.9.1
+  GIT_SHALLOW 1)
+
+FetchContent_GetProperties(json)
+if(NOT json_POPULATED)
+  FetchContent_Populate(json)
+  add_subdirectory(${json_SOURCE_DIR} ${json_BINARY_DIR} EXCLUDE_FROM_ALL)
+endif()
+
 # cxxopts
 include(FetchContent)
 FetchContent_Declare(cxxopts
@@ -78,11 +90,12 @@ target_sources(uvweb PRIVATE
   uvweb/WebSocketClient.cpp
   uvweb/WebSocketCloseConstants.cpp
   uvweb/StrCaseCompare.cpp
+  uvweb/Base64.cpp
   uvweb/PulsarClient.cpp
 )
 
 target_compile_definitions(uvweb PRIVATE SPDLOG_COMPILED_LIB=1)
-target_link_libraries(uvweb spdlog uv uvw deflate)
+target_link_libraries(uvweb spdlog nlohmann_json::nlohmann_json uv uvw deflate)
 
 target_include_directories(uvweb PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/>

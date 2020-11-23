@@ -12,7 +12,8 @@ xcode:
 		cmake -GXcode -DCMAKE_BUILD_TYPE=Debug \
 			-DCXXOPTS_BUILD_EXAMPLES=OFF \
 			-DBUILD_TESTING=OFF \
-			-DLIBUV_BUILD_TESTS=OFF ..)
+			-DLIBUV_BUILD_TESTS=OFF .. && open uvweb.xcodeproj)
+
 
 build:
 	(cd build && ninja)

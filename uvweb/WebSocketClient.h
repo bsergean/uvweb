@@ -77,6 +77,9 @@ namespace uvweb
                    size_t closeWireSize = 0,
                    bool remote = false);
 
+        static std::string readyStateToString(ReadyState readyState);
+        bool isConnected() const;
+
     private:
         struct wsheader_type
         {

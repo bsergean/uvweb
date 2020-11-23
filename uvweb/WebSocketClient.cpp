@@ -129,6 +129,7 @@ namespace uvweb
         : _useMask(true)
         , _readyState(ReadyState::Closed)
         , _closeCode(WebSocketCloseConstants::kInternalErrorCode)
+        , _enablePerMessageDeflate(false)
         , mHandshaked(false)
         , _closingTimePoint(std::chrono::steady_clock::now())
         , _enablePong(kDefaultEnablePong)
@@ -187,11 +188,12 @@ namespace uvweb
         mRequest.port = port;
 
         // On Error
-        mClient->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle&) {
-            spdlog::error("Connection to {} failed : {}", mRequest.host, errorEvent.name());
+        mClient->on<uvw::ErrorEvent>(
+            [host, port](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle&) {
+                spdlog::error("Connection to {}:{} failed : {}", host, port, errorEvent.name());
 
-            // FIXME: maybe call handleReadError(), ported from ix ?
-        });
+                // FIXME: maybe call handleReadError(), ported from ix ?
+            });
 
         // On connect
         mClient->once<uvw::ConnectEvent>([this](const uvw::ConnectEvent&, uvw::TCPHandle&) {
@@ -256,6 +258,10 @@ namespace uvweb
                     std::string msg(event.data.get(), event.length);
                     spdlog::debug("Msg received: {}", msg);
                     return;
+                }
+                else if (response->messageComplete)
+                {
+                    spdlog::debug("response completed");
                 }
             }
         });
@@ -637,6 +643,8 @@ namespace uvweb
         }
 
         _readyState = readyState;
+
+        spdlog::debug("New Ready state: {}", WebSocketClient::readyStateToString(_readyState));
     }
 
     //
@@ -1049,5 +1057,22 @@ namespace uvweb
     void WebSocketClient::invokeOnMessageCallback(const WebSocketMessagePtr& msg)
     {
         _onMessageCallback(msg);
+    }
+
+    std::string WebSocketClient::readyStateToString(ReadyState readyState)
+    {
+        switch (readyState)
+        {
+            case ReadyState::Open: return "OPEN";
+            case ReadyState::Connecting: return "CONNECTING";
+            case ReadyState::Closing: return "CLOSING";
+            case ReadyState::Closed: return "CLOSED";
+            default: return "UNKNOWN";
+        }
+    }
+
+    bool WebSocketClient::isConnected() const
+    {
+        return _readyState == ReadyState::Open;
     }
 } // namespace uvweb
