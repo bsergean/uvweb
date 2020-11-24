@@ -117,7 +117,6 @@ namespace uvweb
         std::copy_n(str.c_str(), str.length(), buff.get());
 
         client.write(std::move(buff), str.length());
-        client.close();
     }
 
     HttpServer::HttpServer(const std::string& host, int port)
@@ -143,13 +142,22 @@ namespace uvweb
         settings.on_header_value = on_header_value;
         settings.on_body = on_body;
 
-        tcp->on<uvw::ErrorEvent>(
-            [](const uvw::ErrorEvent&, uvw::TCPHandle&) { /* something went wrong */ });
+        tcp->on<uvw::ErrorEvent>([](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle&) {
+            /* something went wrong */
+            spdlog::error("Listen socket error {}", errorEvent.name());
+        });
 
         tcp->on<uvw::ListenEvent>([&settings](const uvw::ListenEvent&, uvw::TCPHandle& srv) {
             std::shared_ptr<uvw::TCPHandle> client = srv.loop().resource<uvw::TCPHandle>();
             client->once<uvw::EndEvent>(
                 [](const uvw::EndEvent&, uvw::TCPHandle& client) { client.close(); });
+
+            client->on<uvw::ErrorEvent>(
+                [](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle& client) {
+                    /* something went wrong */
+                    spdlog::error("socket error {}", errorEvent.name());
+                    client.close();
+                });
 
             http_parser* parser = (http_parser*) malloc(sizeof(http_parser));
             http_parser_init(parser, HTTP_REQUEST);
