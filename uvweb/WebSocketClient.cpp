@@ -301,7 +301,7 @@ namespace uvweb
                 }
                 else if (response->messageComplete)
                 {
-                    spdlog::debug("response completed");
+                    spdlog::info("Http requests fully parsed. HTTP status code: {}", response->statusCode);
                 }
             }
         });
