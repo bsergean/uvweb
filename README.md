@@ -59,7 +59,6 @@ int main()
 
     uvweb::PulsarClient pulsarClient(url, maxQueueSize);
 
-    std::string message("hello world");
     std::string tenant("public");
     std::string namespace("default");
     std::string topic("topic_name");
