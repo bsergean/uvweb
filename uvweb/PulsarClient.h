@@ -12,7 +12,10 @@
 
 namespace uvweb
 {
-    using OnPublishResponseCallback = std::function<void(bool, const std::string&)>;
+    using OnPublishResponseCallback = std::function<void(bool, // success
+                                                         const std::string&, // context
+                                                         const std::string&  // message id
+                                                         )>;
     using OnSubscribeResponseCallback = std::function<bool(const std::string&,
                                                            const std::string&)>;
 
@@ -58,6 +61,7 @@ namespace uvweb
 
         std::map<std::string, std::shared_ptr<WebSocketClient>> _clients;
         std::map<std::string, OnPublishResponseCallback> _publishCallbacks;
+        std::map<std::string, std::shared_ptr<uvw::TimerHandle>> _publishTimers;
         std::string _baseUrl;
         uint64_t _mId;
 

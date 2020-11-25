@@ -52,8 +52,11 @@ int main(int argc, char* argv[])
                                  args.tenant,
                                  args.nameSpace,
                                  topic,
-                                 [](bool success, const std::string& messageId) {
+                                 [](bool success, 
+                                    const std::string& context,
+                                    const std::string& messageId) {
                                      std::cout << "Publish successful: " << success
+                                               << " context " << context
                                                << " message id: " << messageId << std::endl;
                                  });
         });

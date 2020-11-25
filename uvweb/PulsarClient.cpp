@@ -59,6 +59,32 @@ namespace uvweb
             webSocketClient->connect(url);
         }
 
+        //
+        // Handle timeouts with timers
+        //
+        auto timeout = 3000; // 3 seconds
+
+        auto loop = uvw::Loop::getDefault();
+        auto timer = loop->resource<uvw::TimerHandle>();
+        _publishTimers[context] = timer;
+
+        timer->on<uvw::TimerEvent>([this, context](const auto&, auto& handle) {
+            auto it = _publishCallbacks.find(context);
+            if (it != _publishCallbacks.end())
+            {
+                auto callback = it->second;
+                bool success = false;
+                callback(success, context, "n/a");
+                _publishCallbacks.erase(context);
+            }
+            _publishTimers.erase(context);
+            handle.close();
+        });
+        timer->start(uvw::TimerHandle::Time {timeout}, uvw::TimerHandle::Time {0});
+
+        //
+        // Push the event to the publish queue
+        //
         auto serializedMsg = serializePublishMessage(str, context);
         _queue.push({url, serializedMsg});
     }
@@ -158,7 +184,8 @@ namespace uvweb
         if (it != _publishCallbacks.end())
         {
             auto callback = it->second;
-            callback(true, pdu.value("messageId", "n/a"));
+            bool success = true;
+            callback(success, context, pdu.value("messageId", "n/a"));
             _publishCallbacks.erase(context);
         }
         else
