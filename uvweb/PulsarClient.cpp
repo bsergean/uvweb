@@ -228,4 +228,14 @@ namespace uvweb
             }
         }
     }
+
+    void PulsarClient::close()
+    {
+        _timer->close();
+
+        for (auto&& it : _clients)
+        {
+            it.second->close();
+        }
+    }
 } // namespace uvweb

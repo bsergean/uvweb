@@ -4,6 +4,8 @@
 #include <cxxopts.hpp>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
+#include <chrono>
+#include <thread>
 
 void setupLogging(const Args& args)
 {
@@ -60,6 +62,7 @@ bool parseOptions(int argc, char* argv[], Args& args)
         ( "t,topic", "Topic", cxxopts::value<std::string>() )
         ( "subscription", "Subscription", cxxopts::value<std::string>() )
         ( "repeat", "Repeat", cxxopts::value<int>() )
+        ( "delay", "Delay between repeated requests", cxxopts::value<int>()->default_value( "0" ) )
         ( "s,subscribe", "Subscribe", cxxopts::value<bool>()->default_value( "false" ) )
         ( "h,help", "Print usage" )
 
@@ -119,6 +122,11 @@ bool parseOptions(int argc, char* argv[], Args& args)
         args.subscribe = result["subscribe"].as<bool>();
 
         auto topic = result["topic"].as<std::string>();
+
+        if (result.count("delay") > 0)
+        {
+            args.delay = result["delay"].as<int>();
+        }
 
         // Publish
         if (result.count("subscribe") == 0)

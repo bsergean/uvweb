@@ -14,6 +14,9 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    auto loop = uvw::Loop::getDefault();
+    auto timer = loop->resource<uvw::TimerHandle>();
+
     uvweb::PulsarClient pulsarClient(args.url);
 
     if (args.subscribe)
@@ -30,20 +33,34 @@ int main(int argc, char* argv[])
     }
     else
     {
-        for (int i = 0; i < args.messages.size(); ++i)
-        {
-            pulsarClient.publish(args.messages[i],
+        timer->on<uvw::TimerEvent>([&args, &pulsarClient](const auto&, auto& handle) {
+            if (args.messages.empty())
+            {
+                handle.close();
+                pulsarClient.close();
+                return;
+            }
+
+            // Grab the first message to send and pop it.
+            auto message = args.messages.front();
+            args.messages.erase( args.messages.begin() ); // like pop_front()
+
+            auto topic = args.topics.front();
+            args.topics.erase( args.topics.begin() ); // like pop_front()
+
+            pulsarClient.publish(message,
                                  args.tenant,
                                  args.nameSpace,
-                                 args.topics[i],
+                                 topic,
                                  [](bool success, const std::string& messageId) {
                                      std::cout << "Publish successful: " << success
                                                << " message id: " << messageId << std::endl;
                                  });
-        }
+        });
+
+        timer->start(uvw::TimerHandle::Time {0}, uvw::TimerHandle::Time {args.delay});
     }
 
-    auto loop = uvw::Loop::getDefault();
     loop->run();
 
     std::cout << "Loop terminated, exiting." << std::endl;

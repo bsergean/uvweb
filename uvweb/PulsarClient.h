@@ -35,6 +35,8 @@ namespace uvweb
             const std::string& subscription,
             const OnSubscribeResponseCallback& callback);
 
+        void close();
+
     private:
         std::pair<bool, std::shared_ptr<WebSocketClient>> getWebSocketClient(const std::string& key);
         void publish(const std::string& str, std::shared_ptr<WebSocketClient>);

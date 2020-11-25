@@ -10,6 +10,7 @@ struct Args
     std::string tenant;
     std::string nameSpace;
     std::string subscription;
+    int delay = -1;
 
     std::vector<std::string> topics;
     std::vector<std::string> messages;
