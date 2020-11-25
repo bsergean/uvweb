@@ -1,10 +1,10 @@
 
 #include "PulsarOptions.h"
 
+#include <chrono>
 #include <cxxopts.hpp>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
-#include <chrono>
 #include <thread>
 
 void setupLogging(const Args& args)

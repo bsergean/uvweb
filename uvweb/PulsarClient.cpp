@@ -7,15 +7,21 @@
 #include "PulsarClient.h"
 
 #include "Base64.h"
+#include <iostream>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 #include <sstream>
 
 namespace uvweb
 {
-    PulsarClient::PulsarClient(const std::string& baseUrl)
+    const size_t PulsarClient::_defaultMaxQueueSize = 1000;
+
+    PulsarClient::PulsarClient(const std::string& baseUrl, size_t maxQueueSize)
         : _baseUrl(baseUrl)
         , _mId(0)
+        , _maxQueueSize(maxQueueSize)
+        , _deliveredMessages(0)
+        , _droppedMessages(0)
     {
         createQueueProcessor();
     }
@@ -74,6 +80,7 @@ namespace uvweb
             {
                 auto callback = it->second;
                 bool success = false;
+                _droppedMessages++;
                 callback(success, context, "n/a");
                 _publishCallbacks.erase(context);
             }
@@ -85,8 +92,14 @@ namespace uvweb
         //
         // Push the event to the publish queue
         //
+        if (_queue.size() == _maxQueueSize)
+        {
+            spdlog::warn("Max queue size reached. Dropping old messages");
+            _queue.pop_front();
+        }
+
         auto serializedMsg = serializePublishMessage(str, context);
-        _queue.push({url, serializedMsg});
+        _queue.push_back({url, serializedMsg});
     }
 
     void PulsarClient::subscribe(const std::string& tenant,
@@ -185,6 +198,7 @@ namespace uvweb
         {
             auto callback = it->second;
             bool success = true;
+            _deliveredMessages++;
             callback(success, context, pdu.value("messageId", "n/a"));
             _publishCallbacks.erase(context);
         }
@@ -209,7 +223,7 @@ namespace uvweb
 
                 if (webSocketClient->sendText(serializedMsg))
                 {
-                    _queue.pop();
+                    _queue.pop_front();
                 }
                 else
                 {
@@ -264,5 +278,12 @@ namespace uvweb
         {
             it.second->close();
         }
+    }
+
+    void PulsarClient::reportStats()
+    {
+        std::cout << "== Pulsar client statistics ==" << std::endl;
+        std::cout << "Delivered messages: " << _deliveredMessages << std::endl;
+        std::cout << "Dropped messages: " << _droppedMessages << std::endl;
     }
 } // namespace uvweb

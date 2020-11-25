@@ -9,6 +9,7 @@
 #include <queue>
 #include <memory>
 #include <functional>
+#include <list>
 
 namespace uvweb
 {
@@ -22,7 +23,7 @@ namespace uvweb
     class PulsarClient
     {
     public:
-        PulsarClient(const std::string& baseUrl);
+        PulsarClient(const std::string& baseUrl, size_t maxQueueSize = PulsarClient::_defaultMaxQueueSize);
 
         void publish(
             const std::string& str,
@@ -39,6 +40,8 @@ namespace uvweb
             const OnSubscribeResponseCallback& callback);
 
         void close();
+
+        void reportStats();
 
     private:
         std::pair<bool, std::shared_ptr<WebSocketClient>> getWebSocketClient(const std::string& key);
@@ -66,8 +69,15 @@ namespace uvweb
         uint64_t _mId;
 
         // We could have multiple queues per topic
-        std::queue<std::pair<std::string, std::string>> _queue;
+        // We could use a std::deque too.
+        std::list<std::pair<std::string, std::string>> _queue;
+        size_t _maxQueueSize;
+        static const size_t _defaultMaxQueueSize;
 
         std::shared_ptr<uvw::TimerHandle> _timer;
+
+        // Stats
+        size_t _droppedMessages;
+        size_t _deliveredMessages;
     };
 }

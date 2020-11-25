@@ -130,6 +130,7 @@ namespace uvweb
         , _readyState(ReadyState::Closed)
         , _closeCode(WebSocketCloseConstants::kInternalErrorCode)
         , _enablePerMessageDeflate(false)
+        , _receivedMessageCompressed(false)
         , mHandshaked(false)
         , _closingTimePoint(std::chrono::steady_clock::now())
         , _enablePong(kDefaultEnablePong)
@@ -148,8 +149,44 @@ namespace uvweb
         mSettings.on_body = on_body;
     }
 
+    WebSocketClient::~WebSocketClient()
+    {
+        ;
+    }
+
+    // FIXME: not hooked for when the remote connection is dropped
+    void WebSocketClient::startReconnectTimer()
+    {
+        stopReconnectTimer();
+
+        // Timer for automatic reconnection
+        auto loop = uvw::Loop::getDefault();
+        _automaticReconnectionTimer = loop->resource<uvw::TimerHandle>();
+
+        _automaticReconnectionTimer->on<uvw::TimerEvent>([this](const auto&, auto&) {
+            if (!isConnected() && !_url.empty())
+            {
+                spdlog::info("Trying to reconnect");
+                spdlog::info("Current Ready state: {}",
+                             WebSocketClient::readyStateToString(_readyState));
+                connect(_url);
+            }
+        });
+        _automaticReconnectionTimer->start(uvw::TimerHandle::Time {1000},
+                                           uvw::TimerHandle::Time {0});
+    }
+
+    void WebSocketClient::stopReconnectTimer()
+    {
+        if (_automaticReconnectionTimer)
+        {
+            _automaticReconnectionTimer->stop();
+        }
+    }
+
     void WebSocketClient::connect(const std::string& url)
     {
+        _url = url;
         std::string protocol, host, path, query;
         int port;
 
@@ -161,6 +198,7 @@ namespace uvweb
             return;
         }
 
+        stopReconnectTimer();
         auto loop = uvw::Loop::getDefault();
         mHandshaked = false;
         mClient = loop->resource<uvw::TCPHandle>();
@@ -189,10 +227,11 @@ namespace uvweb
 
         // On Error
         mClient->on<uvw::ErrorEvent>(
-            [host, port](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle&) {
+            [this, host, port](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle&) {
                 spdlog::error("Connection to {}:{} failed : {}", host, port, errorEvent.name());
 
                 // FIXME: maybe call handleReadError(), ported from ix ?
+                startReconnectTimer();
             });
 
         // On connect
@@ -227,6 +266,7 @@ namespace uvweb
                     // FIXME: missing validation of WebSocket Key header
 
                     mHandshaked = true;
+                    stopReconnectTimer();
                     setReadyState(ReadyState::Open);
 
                     // emit connected callback
@@ -272,6 +312,9 @@ namespace uvweb
 
     bool WebSocketClient::writeHandshakeRequest()
     {
+        // FIXME: this would be a good place to start this timer but it does not work
+        // startReconnectTimer();
+
         // Write the request to the socket
         std::stringstream ss;
         //
@@ -358,6 +401,12 @@ namespace uvweb
         if (_readyState == ReadyState::Closing || _readyState == ReadyState::Closed)
         {
             return;
+        }
+
+        if (!remote)
+        {
+            // FIXME: validate this
+            stopReconnectTimer();
         }
 
         if (closeWireSize == 0)

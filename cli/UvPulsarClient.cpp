@@ -43,22 +43,21 @@ int main(int argc, char* argv[])
 
             // Grab the first message to send and pop it.
             auto message = args.messages.front();
-            args.messages.erase( args.messages.begin() ); // like pop_front()
+            args.messages.erase(args.messages.begin()); // like pop_front()
 
             auto topic = args.topics.front();
-            args.topics.erase( args.topics.begin() ); // like pop_front()
+            args.topics.erase(args.topics.begin()); // like pop_front()
 
-            pulsarClient.publish(message,
-                                 args.tenant,
-                                 args.nameSpace,
-                                 topic,
-                                 [](bool success, 
-                                    const std::string& context,
-                                    const std::string& messageId) {
-                                     std::cout << "Publish successful: " << success
-                                               << " context " << context
-                                               << " message id: " << messageId << std::endl;
-                                 });
+            pulsarClient.publish(
+                message,
+                args.tenant,
+                args.nameSpace,
+                topic,
+                [](bool success, const std::string& context, const std::string& messageId) {
+                    std::string successString = (success) ? "true" : "false";
+                    std::cout << "Publish successful: " << successString << " context " << context
+                              << " message id: " << messageId << std::endl;
+                });
         });
 
         timer->start(uvw::TimerHandle::Time {0}, uvw::TimerHandle::Time {args.delay});
@@ -66,6 +65,7 @@ int main(int argc, char* argv[])
 
     loop->run();
 
+    pulsarClient.reportStats();
     std::cout << "Loop terminated, exiting." << std::endl;
     return 0;
 }

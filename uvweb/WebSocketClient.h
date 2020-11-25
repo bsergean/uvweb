@@ -61,6 +61,7 @@ namespace uvweb
     {
     public:
         WebSocketClient();
+        ~WebSocketClient();
 
         void setOnMessageCallback(const OnMessageCallback& callback);
         void invokeOnMessageCallback(const WebSocketMessagePtr& msg);
@@ -169,6 +170,12 @@ namespace uvweb
         void sendCloseFrame(uint16_t code, const std::string& reason);
 
         //
+        // Automatic reconnection
+        //
+        void startReconnectTimer();
+        void stopReconnectTimer();
+
+        //
         // Member variables
         //
         std::shared_ptr<uvw::TCPHandle> mClient;
@@ -234,5 +241,9 @@ namespace uvweb
         static const int kDefaultPingIntervalSecs;
         static const std::string kPingMessage;
         uint64_t _pingCount;
+
+        // automatic reconnection
+        std::string _url;
+        std::shared_ptr<uvw::TimerHandle> _automaticReconnectionTimer;
     };
 }
