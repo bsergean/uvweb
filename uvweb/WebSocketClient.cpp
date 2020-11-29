@@ -198,6 +198,10 @@ namespace uvweb
             return;
         }
 
+        mRequest.path = path;
+        mRequest.host = host;
+        mRequest.port = port;
+
         stopReconnectTimer();
         auto loop = uvw::Loop::getDefault();
         mHandshaked = false;
@@ -216,11 +220,8 @@ namespace uvweb
             return;
         }
 
-        mRequest.path = path;
-        mRequest.host = host;
-        mRequest.port = port;
-
-        mClient->connect(*addr->ai_addr);
+        spdlog::debug("dns resolution done");
+        connect(*addr->ai_addr);
     }
 
     void WebSocketClient::connect(const sockaddr& addr)
