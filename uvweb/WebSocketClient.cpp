@@ -205,40 +205,43 @@ namespace uvweb
         stopReconnectTimer();
         auto loop = uvw::Loop::getDefault();
         mHandshaked = false;
-        mClient = loop->resource<uvw::TCPHandle>();
-        mHttpParser = std::make_shared<http_parser>();
-        http_parser_init(mHttpParser.get(), HTTP_RESPONSE);
 
-        auto dnsRequest = loop->resource<uvw::GetAddrInfoReq>();
-        auto [dnsLookupSuccess, addr] =
-            dnsRequest->addrInfoSync(host, std::to_string(port)); // FIXME: do DNS asynchronously
-        if (!dnsLookupSuccess)
-        {
-            std::stringstream ss;
-            ss << "Could not resolve host: '" << host << "'";
-            spdlog::error(ss.str());
-            return;
-        }
+        // async DNS lookup
+        auto request = loop->resource<uvw::GetAddrInfoReq>();
 
-        spdlog::debug("dns resolution done");
-        connect(*addr->ai_addr);
+        request->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent& errorEvent, auto& /* handle */) {
+            spdlog::error(
+                "Connection to {}:{} failed : {}", mRequest.host, mRequest.port, errorEvent.name());
+            startReconnectTimer();
+        });
+
+        request->on<uvw::AddrInfoEvent>([this](const auto& addrInfoEvent, auto& /* handle */) {
+            sockaddr addr = *(addrInfoEvent.data)->ai_addr;
+            connect(addr);
+        });
+
+        request->addrInfo(host, std::to_string(port));
     }
 
     void WebSocketClient::connect(const sockaddr& addr)
     {
+        mClient = loop->resource<uvw::TCPHandle>();
+        mHttpParser = std::make_shared<http_parser>();
+        http_parser_init(mHttpParser.get(), HTTP_RESPONSE);
+
         auto response = std::make_shared<Response>();
         mClient->data(response);
 
         mHttpParser->data = mClient->data().get();
 
         // On Error
-        mClient->on<uvw::ErrorEvent>(
-            [this](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle&) {
-                spdlog::error("Connection to {}:{} failed : {}", mRequest.host, mRequest.port, errorEvent.name());
+        mClient->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle&) {
+            spdlog::error(
+                "Connection to {}:{} failed : {}", mRequest.host, mRequest.port, errorEvent.name());
 
-                // FIXME: maybe call handleReadError(), ported from ix ?
-                startReconnectTimer();
-            });
+            // FIXME: maybe call handleReadError(), ported from ix ?
+            startReconnectTimer();
+        });
 
         // On connect
         mClient->once<uvw::ConnectEvent>([this](const uvw::ConnectEvent&, uvw::TCPHandle&) {
@@ -307,7 +310,8 @@ namespace uvweb
                 }
                 else if (response->messageComplete)
                 {
-                    spdlog::info("Http requests fully parsed. HTTP status code: {}", response->statusCode);
+                    spdlog::info("Http requests fully parsed. HTTP status code: {}",
+                                 response->statusCode);
                 }
             }
         });
