@@ -2,6 +2,8 @@
 #include <string>
 #include <map>
 
+#include <uvw.hpp>
+
 
 namespace uvweb
 {
@@ -14,6 +16,7 @@ namespace uvweb
         std::string body;
         std::string method;
         std::string host;
+        int port;
         bool messageComplete = false;
     };
 
@@ -36,5 +39,9 @@ namespace uvweb
         void fetch(const std::string& url);
 
     private:
+        void fetch(const sockaddr& addr);
+        void writeRequest(uvw::TCPHandle& client);
+
+        Request mRequest;
     };
 }

@@ -90,24 +90,29 @@ namespace uvweb
         return 0;
     }
 
-    void writeRequest(const Request& request, uvw::TCPHandle& client)
+    HttpClient::HttpClient()
+    {
+        ;
+    }
+
+    void HttpClient::writeRequest(uvw::TCPHandle& client)
     {
         // Write the request to the socket
         std::stringstream ss;
-        ss << request.method;
+        ss << mRequest.method;
         ss << " ";
-        ss << request.path;
+        ss << mRequest.path;
         ss << " ";
         ss << "HTTP/1.1\r\n";
 
         // Write headers
-        if (request.method != "GET" && request.method != "HEAD")
+        if (mRequest.method != "GET" && mRequest.method != "HEAD")
         {
-            ss << "Content-Length: " << request.body.size() << "\r\n";
+            ss << "Content-Length: " << mRequest.body.size() << "\r\n";
         }
 
         // FIXME: only write those default headers if no user supplied are presents
-        ss << "Host: " << request.host << "\r\n";
+        ss << "Host: " << mRequest.host << "\r\n";
         ss << "Accept: */*"
            << "\r\n";
         ss << "Accept-Encoding: gzip"
@@ -115,15 +120,15 @@ namespace uvweb
         ss << "User-Agent: uvweb-client"
            << "\r\n";
 
-        for (auto&& it : request.headers)
+        for (auto&& it : mRequest.headers)
         {
             ss << it.first << ": " << it.second << "\r\n";
         }
         ss << "\r\n";
 
-        if (request.method != "GET" && request.method != "HEAD")
+        if (mRequest.method != "GET" && mRequest.method != "HEAD")
         {
-            ss << request.body;
+            ss << mRequest.body;
             ss << "\r\n";
         }
 
@@ -133,11 +138,6 @@ namespace uvweb
         std::copy_n(str.c_str(), str.length(), buff.get());
 
         client.write(std::move(buff), str.length());
-    }
-
-    HttpClient::HttpClient()
-    {
-        ;
     }
 
     void HttpClient::fetch(const std::string& url)
@@ -153,19 +153,32 @@ namespace uvweb
             return;
         }
 
+        mRequest.method = "GET";
+        mRequest.path = path;
+        mRequest.host = host;
+        mRequest.port = port;
+
         auto loop = uvw::Loop::getDefault();
 
-        auto dnsRequest = loop->resource<uvw::GetAddrInfoReq>();
-        auto [dnsLookupSuccess, addr] =
-            dnsRequest->addrInfoSync(host, std::to_string(port)); // FIXME: do DNS asynchronously
-        if (!dnsLookupSuccess)
-        {
-            std::stringstream ss;
-            ss << "Could not resolve host: '" << host << "'";
-            spdlog::error(ss.str());
-            return;
-        }
+        // async DNS lookup
+        auto request = loop->resource<uvw::GetAddrInfoReq>();
 
+        request->on<uvw::ErrorEvent>([host, port](const uvw::ErrorEvent& errorEvent, auto& /* handle */) {
+            spdlog::error(
+                "Connection to {}:{} failed : {}", host, port, errorEvent.name());
+        });
+
+        request->on<uvw::AddrInfoEvent>([this](const auto& addrInfoEvent, auto& /* handle */) {
+            sockaddr addr = *(addrInfoEvent.data)->ai_addr;
+            fetch(addr);
+        });
+
+        request->addrInfo(host, std::to_string(port));
+    }
+
+    void HttpClient::fetch(const sockaddr& addr)
+    {
+        auto loop = uvw::Loop::getDefault();
         auto client = loop->resource<uvw::TCPHandle>();
 
         // Register http parser callbacks
@@ -187,21 +200,16 @@ namespace uvweb
 
         parser->data = client->data().get();
 
-        Request request;
-        request.method = "GET";
-        request.path = path;
-        request.host = host;
-
         // On Error
-        client->on<uvw::ErrorEvent>([&host, &port](const uvw::ErrorEvent& errorEvent,
-                                                   uvw::TCPHandle&) {
-            spdlog::error("Connection to {} on port {} failed : {}", host, port, errorEvent.name());
+        client->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent& errorEvent,
+                                           uvw::TCPHandle&) {
+            spdlog::error("Connection to {} on port {} failed : {}", mRequest.host, mRequest.port, errorEvent.name());
         });
 
         // On connect
         client->once<uvw::ConnectEvent>(
-            [&request](const uvw::ConnectEvent&, uvw::TCPHandle& client) {
-                writeRequest(request, client);
+            [this](const uvw::ConnectEvent&, uvw::TCPHandle& client) {
+                writeRequest(client);
             });
 
         client->on<uvw::DataEvent>([response, parser, &settings](const uvw::DataEvent& event,
@@ -227,7 +235,7 @@ namespace uvweb
             }
         });
 
-        client->connect(*addr->ai_addr);
+        client->connect(addr);
 
         client->read();
         loop->run();

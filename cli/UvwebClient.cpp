@@ -17,5 +17,8 @@ int main(int argc, char* argv[])
         httpClient.fetch(url);
     }
 
+    auto loop = uvw::Loop::getDefault();
+    loop->run();
+
     return 0;
 }

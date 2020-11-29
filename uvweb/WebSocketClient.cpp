@@ -225,6 +225,7 @@ namespace uvweb
 
     void WebSocketClient::connect(const sockaddr& addr)
     {
+        auto loop = uvw::Loop::getDefault();
         mClient = loop->resource<uvw::TCPHandle>();
         mHttpParser = std::make_shared<http_parser>();
         http_parser_init(mHttpParser.get(), HTTP_RESPONSE);
