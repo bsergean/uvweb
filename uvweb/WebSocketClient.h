@@ -113,6 +113,8 @@ namespace uvweb
             FRAGMENT
         };
 
+        void connect(const sockaddr& addr);
+
         bool writeHandshakeRequest();
 
         //

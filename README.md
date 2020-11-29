@@ -1,6 +1,6 @@
 # uvweb
 
-Http, WebSocket code based on uvw library and http_parser.
+Http, WebSocket code based on libuv, uvw (libuv C++ binding) and http_parser.
 
 ## Pulsar client
 
@@ -72,9 +72,34 @@ int main()
         [](const std::string& msg, const std::string& messageId) -> bool {
             std::cout << "Got message " << msg
                       << " message id: " << messageId << std::endl;
+            //
+            // returning true informs the client to send an acknowledge
+            // to tell the Pulsar Client that a message has been properly consumed
+            //
             return true;
         });
 
     return 0;
 }
 ```
+
+## Building
+
+The project is CMake based, and all dependencies are fetched and build on the fly thanks to CMake FetchContent.
+
+```
+mkdir build
+cd build
+cmake ..
+make
+```
+
+Dependant unittest will be run, to build faster add those cmake options.
+
+```
+cmake \
+    -DCXXOPTS_BUILD_EXAMPLES=OFF \
+    -DBUILD_TESTING=OFF \
+    -DLIBUV_BUILD_TESTS=OFF
+```
+

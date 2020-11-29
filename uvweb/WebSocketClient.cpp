@@ -216,19 +216,24 @@ namespace uvweb
             return;
         }
 
+        mRequest.path = path;
+        mRequest.host = host;
+        mRequest.port = port;
+
+        mClient->connect(*addr->ai_addr);
+    }
+
+    void WebSocketClient::connect(const sockaddr& addr)
+    {
         auto response = std::make_shared<Response>();
         mClient->data(response);
 
         mHttpParser->data = mClient->data().get();
 
-        mRequest.path = path;
-        mRequest.host = host;
-        mRequest.port = port;
-
         // On Error
         mClient->on<uvw::ErrorEvent>(
-            [this, host, port](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle&) {
-                spdlog::error("Connection to {}:{} failed : {}", host, port, errorEvent.name());
+            [this](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle&) {
+                spdlog::error("Connection to {}:{} failed : {}", mRequest.host, mRequest.port, errorEvent.name());
 
                 // FIXME: maybe call handleReadError(), ported from ix ?
                 startReconnectTimer();
@@ -306,7 +311,7 @@ namespace uvweb
             }
         });
 
-        mClient->connect(*addr->ai_addr);
+        mClient->connect(addr);
         mClient->read(); // necessary or nothing happens
     }
 

@@ -22,6 +22,9 @@ setup_dir:
 	rm -rf build
 	mkdir -p build
 
+connect_jeanserge: build
+	build/cli/uvweb-ws-client --url ws://jeanserge.com:8008
+
 clean_build: setup_dir build
 
 format:
