@@ -64,7 +64,6 @@ namespace uvweb
         ~WebSocketClient();
 
         void setOnMessageCallback(const OnMessageCallback& callback);
-        void invokeOnMessageCallback(const WebSocketMessagePtr& msg);
 
         void connect(const std::string& url);
 
@@ -80,6 +79,9 @@ namespace uvweb
 
         static std::string readyStateToString(ReadyState readyState);
         bool isConnected() const;
+
+    protected:
+        virtual void invokeOnMessageCallback(const WebSocketMessagePtr& msg);
 
     private:
         struct wsheader_type

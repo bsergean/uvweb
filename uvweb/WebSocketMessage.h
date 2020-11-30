@@ -15,25 +15,25 @@ namespace uvweb
         WebSocketMessageType type;
         const std::string& str;
         size_t wireSize;
-        WebSocketErrorInfo errorInfo;
-        WebSocketOpenInfo openInfo;
-        WebSocketCloseInfo closeInfo;
         bool binary;
+        std::unique_ptr<WebSocketErrorInfo> errorInfo;
+        std::unique_ptr<WebSocketOpenInfo> openInfo;
+        std::unique_ptr<WebSocketCloseInfo> closeInfo;
 
         WebSocketMessage(WebSocketMessageType t,
                          const std::string& s,
                          size_t w,
-                         WebSocketErrorInfo e,
-                         WebSocketOpenInfo o,
-                         WebSocketCloseInfo c,
-                         bool b = false)
+                         bool b,
+                         std::unique_ptr<WebSocketErrorInfo> e,
+                         std::unique_ptr<WebSocketOpenInfo> o,
+                         std::unique_ptr<WebSocketCloseInfo> c)
             : type(t)
             , str(s)
             , wireSize(w)
-            , errorInfo(e)
-            , openInfo(o)
-            , closeInfo(c)
             , binary(b)
+            , errorInfo(std::move(e))
+            , openInfo(std::move(o))
+            , closeInfo(std::move(c))
         {
             ;
         }

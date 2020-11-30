@@ -283,9 +283,10 @@ namespace uvweb
                         WebSocketMessageType::Open,
                         "",
                         0,
-                        WebSocketErrorInfo(),
-                        WebSocketOpenInfo(mRequest.path, response->headers, response->protocol),
-                        WebSocketCloseInfo()));
+                        false,
+                        nullptr,
+                        std::make_unique<WebSocketOpenInfo>(mRequest.path, response->headers, response->protocol),
+                        nullptr));
 
                     // The input buffer might already contains some non HTTP data
                     if (nparsed < event.length)
@@ -689,9 +690,10 @@ namespace uvweb
                 WebSocketMessageType::Close,
                 "",
                 wireSize,
-                WebSocketErrorInfo(),
-                WebSocketOpenInfo(),
-                WebSocketCloseInfo(_closeCode, getCloseReason(), _closeRemote)));
+                false,
+                nullptr,
+                nullptr,
+                std::make_unique<WebSocketCloseInfo>(_closeCode, getCloseReason(), _closeRemote)));
 
             setCloseReason(WebSocketCloseConstants::kInternalErrorMessage);
             _closeCode = WebSocketCloseConstants::kInternalErrorCode;
@@ -1097,10 +1099,10 @@ namespace uvweb
         invokeOnMessageCallback(std::make_unique<WebSocketMessage>(webSocketMessageType,
                                                                    message,
                                                                    wireSize,
-                                                                   webSocketErrorInfo,
-                                                                   WebSocketOpenInfo(),
-                                                                   WebSocketCloseInfo(),
-                                                                   binary));
+                                                                   binary,
+                                                                   nullptr,
+                                                                   nullptr,
+                                                                   nullptr));
     }
 
     void WebSocketClient::setCloseReason(const std::string& reason)

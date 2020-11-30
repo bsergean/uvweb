@@ -51,6 +51,14 @@ int main(int argc, char* argv[])
         else if (msg->type == uvweb::WebSocketMessageType::Open)
         {
             std::cout << "Connection established" << std::endl;
+
+            spdlog::info("Uri: {}", msg->openInfo->uri);
+            spdlog::info("Headers:");
+            for (auto it : msg->openInfo->headers)
+            {
+                spdlog::info("{}: {}", it.first, it.second);
+            }
+
             if (!webSocketClient.sendText("Hello world"))
             {
                 std::cerr << "Error sending text" << std::endl;
@@ -65,17 +73,16 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-void autoroute(Args& args)
+class AutorouteWebSocketClient : public uvweb::WebSocketClient
 {
-    std::atomic<uint64_t> receivedCountPerSecs(0);
-    std::atomic<bool> stop(false);
+public:
+    std::atomic<uint64_t> receivedCountPerSecs;
 
-    uint64_t target(args.msgCount);
+    uint64_t target;
     std::chrono::time_point<std::chrono::high_resolution_clock> start;
 
-    uvweb::WebSocketClient webSocketClient;
-    webSocketClient.setOnMessageCallback([&receivedCountPerSecs, &webSocketClient, &target, &start](
-                                             const uvweb::WebSocketMessagePtr& msg) {
+    virtual void invokeOnMessageCallback(const uvweb::WebSocketMessagePtr& msg) final
+    {
         if (msg->type == uvweb::WebSocketMessageType::Message)
         {
             receivedCountPerSecs++;
@@ -90,29 +97,37 @@ void autoroute(Args& args)
 
                 spdlog::info("AUTOROUTE uvweb :: {} ms", duration);
 
-                webSocketClient.close(); // ??
+                close(); // ??
             }
         }
         else if (msg->type == uvweb::WebSocketMessageType::Open)
         {
             spdlog::info("uvweb autoroute: connected");
-            spdlog::info("Uri: {}", msg->openInfo.uri);
+            spdlog::info("Uri: {}", msg->openInfo->uri);
             spdlog::info("Headers:");
-            for (auto it : msg->openInfo.headers)
+            for (auto it : msg->openInfo->headers)
             {
                 spdlog::info("{}: {}", it.first, it.second);
             }
 
             start = std::chrono::high_resolution_clock::now();
         }
-    });
+    }
+};
+
+void autoroute(Args& args)
+{
+    std::atomic<bool> stop(false);
+    AutorouteWebSocketClient webSocketClient;
+    webSocketClient.target = args.msgCount;
+    webSocketClient.receivedCountPerSecs = 0;
 
     std::string fullUrl(args.url);
     fullUrl += "/";
     fullUrl += std::to_string(args.msgCount);
     webSocketClient.connect(fullUrl);
 
-    auto timer = [&receivedCountPerSecs, &stop] {
+    auto timer = [&webSocketClient, &stop] {
         while (!stop)
         {
             //
@@ -121,11 +136,11 @@ void autoroute(Args& args)
             // our own counters
             //
             std::stringstream ss;
-            ss << "messages received per second: " << receivedCountPerSecs;
+            ss << "messages received per second: " << webSocketClient.receivedCountPerSecs;
 
             spdlog::info(ss.str());
 
-            receivedCountPerSecs = 0;
+            webSocketClient.receivedCountPerSecs = 0;
 
             auto duration = std::chrono::seconds(1);
             std::this_thread::sleep_for(duration);
@@ -136,6 +151,9 @@ void autoroute(Args& args)
 
     auto loop = uvw::Loop::getDefault();
     loop->run();
+
+    stop = true;
+    t1.join();
 }
 
 void autobahn(Args& args)
@@ -157,9 +175,9 @@ void autobahn(Args& args)
             else if (msg->type == uvweb::WebSocketMessageType::Open)
             {
                 spdlog::debug("uvweb autobahn: connected");
-                spdlog::debug("Uri: {}", msg->openInfo.uri);
+                spdlog::debug("Uri: {}", msg->openInfo->uri);
                 spdlog::debug("Headers:");
-                for (auto it : msg->openInfo.headers)
+                for (auto it : msg->openInfo->headers)
                 {
                     spdlog::debug("{}: {}", it.first, it.second);
                 }
@@ -203,9 +221,9 @@ void autobahn(Args& args)
                 else if (msg->type == uvweb::WebSocketMessageType::Open)
                 {
                     spdlog::debug("uvweb autobahn: connected");
-                    spdlog::debug("Uri: {}", msg->openInfo.uri);
+                    spdlog::debug("Uri: {}", msg->openInfo->uri);
                     spdlog::debug("Headers:");
-                    for (auto it : msg->openInfo.headers)
+                    for (auto it : msg->openInfo->headers)
                     {
                         spdlog::debug("{}: {}", it.first, it.second);
                     }
