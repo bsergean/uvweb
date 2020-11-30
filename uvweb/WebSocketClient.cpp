@@ -261,8 +261,7 @@ namespace uvweb
             if (mHandshaked)
             {
                 spdlog::debug("Received {} bytes", event.length);
-                std::string msg(event.data.get(), event.length);
-                dispatch(msg);
+                dispatch(event);
             }
             else
             {
@@ -291,9 +290,14 @@ namespace uvweb
                     // The input buffer might already contains some non HTTP data
                     if (nparsed < event.length)
                     {
-                        auto offset = event.length - nparsed;
-                        std::string msg(event.data.get() + nparsed, offset);
-                        dispatch(msg);
+                        auto len = event.length - nparsed;
+                        std::string msg(event.data.get() + nparsed, len);
+
+                        auto buff = std::make_unique<char[]>(len);
+                        std::copy_n(msg.c_str(), msg.length(), buff.get());
+
+                        uvw::DataEvent dataEvent(std::move(buff), len);
+                        dispatch(dataEvent);
                     }
                 }
                 else if (nparsed != event.length)
@@ -729,12 +733,12 @@ namespace uvweb
     // |                     Payload Data continued ...                |
     // +---------------------------------------------------------------+
     //
-    void WebSocketClient::dispatch(const std::string& buffer)
+    void WebSocketClient::dispatch(const uvw::DataEvent& event)
     {
         //
         // Append the incoming data to our _rxbuf receive buffer.
         //
-        _rxbuf.insert(_rxbuf.end(), buffer.begin(), buffer.end());
+        _rxbuf.insert(_rxbuf.end(), event.data.get(), event.data.get() + event.length);
 
         while (true)
         {

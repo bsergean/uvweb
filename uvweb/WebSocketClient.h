@@ -146,7 +146,7 @@ namespace uvweb
         //
         // Receiving data
         //
-        void dispatch(const std::string& buffer);
+        void dispatch(const uvw::DataEvent& event);
 
         void emitMessage(MessageKind messageKind,
                          const std::string& message,
