@@ -212,7 +212,5 @@ namespace uvweb
 
         tcp->bind(_host, _port);
         tcp->listen();
-
-        loop->run();
     }
 } // namespace uvweb

@@ -1,6 +1,7 @@
 
 #include "ServerOptions.h"
 #include <uvweb/HttpServer.h>
+#include <uvw.hpp>
 
 int main(int argc, char* argv[])
 {
@@ -13,6 +14,9 @@ int main(int argc, char* argv[])
 
     uvweb::HttpServer httpServer(args.host, args.port);
     httpServer.run();
+
+    auto loop = uvw::Loop::getDefault();
+    loop->run();
 
     return 0;
 }
