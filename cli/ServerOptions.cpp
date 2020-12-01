@@ -3,6 +3,8 @@
 #include <cxxopts.hpp>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
+#include <unistd.h>
+#include <fstream>
 
 void setupLogging(const Args& args)
 {
@@ -54,6 +56,7 @@ bool parseOptions(int argc, char* argv[], Args& args)
     options.add_options()
         ("host", "Host to bind to", cxxopts::value<std::string>()->default_value( "127.0.0.1"))
         ( "port", "Port", cxxopts::value<int>()->default_value("8080"))
+        ( "pidfile", "Write pid (process id) to a file", cxxopts::value<std::string>() )
         ( "h,help", "Print usage" )
 
         // Log levels
@@ -79,6 +82,22 @@ bool parseOptions(int argc, char* argv[], Args& args)
 
         args.host = result["host"].as<std::string>();
         args.port = result["port"].as<int>();
+
+        if ( result.count( "pidfile" ) )
+        {
+            auto pidfile = result["pidfile"].as<std::string>();
+            unlink(pidfile.c_str());
+
+            std::ofstream file;
+            file.open(pidfile);
+            if ( !file.is_open() )
+            {
+                std::cerr << "Cannot open " << pidfile << " in write mode" << std::endl;
+                return false;
+            }
+            file << getpid();
+            file.close();
+        }
 
         args.traceLevel = result["trace"].as<bool>();
         args.debugLevel = result["debug"].as<bool>();

@@ -8,7 +8,7 @@ full_build:
 			-DLIBUV_BUILD_TESTS=OFF .. && ninja)
 
 xcode:
-	(cd build && \
+	(cd xcode_build && \
 		cmake -GXcode -DCMAKE_BUILD_TYPE=Debug \
 			-DCXXOPTS_BUILD_EXAMPLES=OFF \
 			-DBUILD_TESTING=OFF \
@@ -22,8 +22,8 @@ setup_dir:
 	rm -rf build
 	mkdir -p build
 
-test_connect_jeanserge: build
-	build/cli/uvweb-ws-client --url ws://jeanserge.com:8008
+test: build
+	sh tools/test.sh
 
 clean_build: setup_dir build
 

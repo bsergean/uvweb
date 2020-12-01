@@ -3,6 +3,24 @@
 #include <uvweb/HttpServer.h>
 #include <uvw.hpp>
 
+class DemoHttpServer : public uvweb::HttpServer
+{
+public:
+    DemoHttpServer(const std::string& host, int port) : uvweb::HttpServer(host, port)
+    {
+        ;
+    }
+
+    void processRequest(
+        std::shared_ptr<uvweb::Request> request,
+        uvweb::Response& response) final
+    {
+        response.statusCode = 200;
+        response.description = "OK";
+        response.body = "OK";
+    }
+};
+
 int main(int argc, char* argv[])
 {
     Args args;
@@ -12,7 +30,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    uvweb::HttpServer httpServer(args.host, args.port);
+    DemoHttpServer httpServer(args.host, args.port);
     httpServer.run();
 
     auto loop = uvw::Loop::getDefault();

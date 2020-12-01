@@ -1,7 +1,8 @@
 #pragma once
 #include <string>
 #include <map>
-
+#include <uvw.hpp>
+#include "http_parser.h"
 
 namespace uvweb
 {
@@ -29,7 +30,15 @@ namespace uvweb
         HttpServer(const std::string& host, int port);
         void run();
 
+    protected:
+        virtual void processRequest(std::shared_ptr<Request> request, 
+                                    Response& response);
+
+        void writeResponse(const Response& response, uvw::TCPHandle& client);
+
     private:
+        http_parser_settings mSettings;
+
         std::string _host;
         int _port;
     };
