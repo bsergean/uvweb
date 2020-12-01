@@ -19,3 +19,5 @@ WORKDIR /opt
 
 RUN ["mkdir", "build"]
 RUN ["make", "full_build_release"]
+
+CMD ["sh"]

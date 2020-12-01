@@ -21,7 +21,6 @@ full_build_release:
 			-DBUILD_TESTING=OFF \
 			-DLIBUV_BUILD_TESTS=OFF .. && ninja -j2)
 
-
 build:
 	(cd build && ninja)
 
