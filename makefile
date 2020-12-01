@@ -33,4 +33,30 @@ format:
 test_compressed_upload:
 	ws curl --compress_request -F foo=@test/data/MAINTAINERS.md http://jeanserge.com:8080/
 
+#
+# Docker
+#
+NAME        := ${DOCKER_REPO}/uvweb
+TAG         := $(shell python tools/compute_version_from_git.py)
+IMG         := ${NAME}:${TAG}
+BUILD       := ${NAME}:build
+PROD        := ${NAME}:production
+
+docker_tag:
+	docker tag ${IMG} ${PROD}
+	docker push ${PROD}
+	docker push ${IMG}
+
+docker: update_version
+	docker build -t ${IMG} .
+	docker tag ${IMG} ${BUILD}
+	docker tag ${IMG} ${PROD}
+
+docker_push: docker_tag
+
+deploy: docker docker_push
+
+dummy: docker
+
+
 .PHONY: build
