@@ -1,3 +1,7 @@
+'''
+To get started: make a tag which is annotated (with the -a option)
+git tag -a v0.1 
+'''
 import os
 import sys
 
