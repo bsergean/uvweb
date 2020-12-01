@@ -1,12 +1,10 @@
 # Build time
-FROM ubuntu:groovy as build
+FROM ubuntu:focal as build
 
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update
 
-RUN apt-get -y install g++ libssl-dev libz-dev make python ninja-build
-RUN apt-get -y install cmake
-RUN apt-get -y install gdb
+RUN apt-get -y install g++ libz-dev make ninja-build cmake python git
 
 COPY . /opt
 WORKDIR /opt
@@ -19,5 +17,5 @@ WORKDIR /opt
 #    docker run --entrypoint sh -it docker-game-eng-dev.addsrv.com/ws:9.10.6 
 #
 
-RUN ["make", "test"]
-# CMD ["ls"]
+RUN ["mkdir", "build"]
+RUN ["make", "full_build_release"]

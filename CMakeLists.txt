@@ -11,7 +11,7 @@ include(FetchContent)
 # deflate
 include(FetchContent)
 FetchContent_Declare(deflate
-    GIT_REPOSITORY "git@github.com:bsergean/libdeflate.git"
+    GIT_REPOSITORY "https://github.com/bsergean/libdeflate.git"
     GIT_TAG "master")
 
 FetchContent_MakeAvailable(deflate)

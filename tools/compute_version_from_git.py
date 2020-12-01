@@ -13,7 +13,7 @@ def computeVersion():
         with open('DOCKER_VERSION') as f:
             return f.read()
 
-    sys.stderr.write(f'git describe -> {gitDescribeOutPut}\n')
+    sys.stderr.write('git describe -> ' + gitDescribeOutPut + '\n')
 
     fullVersion = gitDescribeOutPut.splitlines()[0]
     assert fullVersion[0] == 'v'
@@ -25,7 +25,7 @@ def computeVersion():
     else:
         patch = 0
 
-    version = f'{majorMinor}.{patch}'
+    version = majorMinor + '.' + patch
     return version
 
 

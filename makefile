@@ -14,6 +14,13 @@ xcode:
 			-DBUILD_TESTING=OFF \
 			-DLIBUV_BUILD_TESTS=OFF .. && open uvweb.xcodeproj)
 
+full_build_release:
+	(cd build && \
+		cmake -GNinja -DCMAKE_BUILD_TYPE=Release \
+			-DCXXOPTS_BUILD_EXAMPLES=OFF \
+			-DBUILD_TESTING=OFF \
+			-DLIBUV_BUILD_TESTS=OFF .. && ninja -j2)
+
 
 build:
 	(cd build && ninja)
@@ -47,6 +54,9 @@ docker_tag:
 	docker push ${PROD}
 	docker push ${IMG}
 
+update_version:
+	python tools/compute_version_from_git.py > DOCKER_VERSION
+
 docker: update_version
 	docker build -t ${IMG} .
 	docker tag ${IMG} ${BUILD}
@@ -57,6 +67,5 @@ docker_push: docker_tag
 deploy: docker docker_push
 
 dummy: docker
-
 
 .PHONY: build
