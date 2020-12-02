@@ -7,7 +7,7 @@ test1() {
 test2() {
     ws push_server &
     sleep 0.5
-    build/cli/uvweb-ws-client --autoroute --info --url ws://127.0.0.1:8008
+    build/cli/uvweb-ws-client --msg_count 500000 --autoroute --info --url ws://127.0.0.1:8008
 }
 
 test3() {
