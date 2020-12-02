@@ -50,7 +50,7 @@ FetchContent_MakeAvailable(cxxopts)
 FetchContent_Declare(
     libuv
     GIT_REPOSITORY https://github.com/libuv/libuv.git
-    GIT_TAG v1.40.0
+    GIT_TAG v1.38.0
     GIT_SHALLOW 1
 )
 FetchContent_GetProperties(libuv)
@@ -65,8 +65,8 @@ endif()
 
 # uvw
 FetchContent_Declare(uvw
-    GIT_REPOSITORY "https://github.com/skypjack/uvw"
-    GIT_TAG "v2.8.0_libuv_v1.40"
+    GIT_REPOSITORY "https://github.com/bsergean/uvw"
+    GIT_TAG "feature/suggested_buffer_size_4096"
     GIT_SHALLOW 1) 
 FetchContent_GetProperties(uvw)
 
