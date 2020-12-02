@@ -12,6 +12,20 @@ namespace uvweb
         int http_status = 0;
         std::string reason;
         bool decompressionError = false;
+
+        WebSocketErrorInfo(uint32_t t = 0,
+                           double w = 0,
+                           int h = 0,
+                           std::string r = std::string(),
+                           bool d = false)
+            : retries(t)
+            , wait_time(w)
+            , http_status(h)
+            , reason(r)
+            , decompressionError(d)
+        {
+            ;
+        }
     };
 } // namespace uvweb
 

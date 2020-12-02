@@ -17,6 +17,7 @@ int main(int argc, char* argv[])
     auto loop = uvw::Loop::getDefault();
     auto timer = loop->resource<uvw::TimerHandle>();
 
+    bool error = false;
     uvweb::PulsarClient pulsarClient(args.url);
 
     if (args.subscribe)
@@ -33,7 +34,9 @@ int main(int argc, char* argv[])
     }
     else
     {
-        timer->on<uvw::TimerEvent>([&args, &pulsarClient](const auto&, auto& handle) {
+        timer->on<uvw::TimerEvent>([&error, &args, &pulsarClient](const auto&, auto& handle) {
+            spdlog::debug("Pulsar Publish Timer callback");
+
             if (args.messages.empty())
             {
                 handle.close();
@@ -53,10 +56,15 @@ int main(int argc, char* argv[])
                 args.tenant,
                 args.nameSpace,
                 topic,
-                [](bool success, const std::string& context, const std::string& messageId) {
+                [&error](bool success, const std::string& context, const std::string& messageId) {
                     std::string successString = (success) ? "true" : "false";
                     std::cout << "Publish successful: " << successString << " context " << context
                               << " message id: " << messageId << std::endl;
+
+                    if (!success)
+                    {
+                        error = true;
+                    }
                 });
         });
 
@@ -67,5 +75,5 @@ int main(int argc, char* argv[])
 
     pulsarClient.reportStats();
     std::cout << "Loop terminated, exiting." << std::endl;
-    return 0;
+    return error ? 1 : 0;
 }

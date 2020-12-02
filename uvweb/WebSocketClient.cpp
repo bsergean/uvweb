@@ -318,6 +318,16 @@ namespace uvweb
                 {
                     spdlog::info("Http requests fully parsed. HTTP status code: {}",
                                  response->statusCode);
+
+                    // emit error
+                    invokeOnMessageCallback(std::make_unique<WebSocketMessage>(
+                        WebSocketMessageType::Error,
+                        "",
+                        0,
+                        false,
+                        std::make_unique<WebSocketErrorInfo>(0, 0, response->statusCode, response->body, false),
+                        nullptr,
+                        nullptr));
                 }
             }
         });

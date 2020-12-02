@@ -60,6 +60,12 @@ namespace uvweb
                 {
                     spdlog::debug("Connection to {} closed", _baseUrl);
                 }
+                else if (msg->type == uvweb::WebSocketMessageType::Error)
+                {
+                    spdlog::error("Connection Error {}, reason {}",
+                                  msg->errorInfo->http_status,
+                                  msg->errorInfo->reason);
+                }
             });
 
             webSocketClient->connect(url);
@@ -78,6 +84,7 @@ namespace uvweb
             auto it = _publishCallbacks.find(context);
             if (it != _publishCallbacks.end())
             {
+                // timeout
                 auto callback = it->second;
                 bool success = false;
                 _droppedMessages++;
@@ -133,6 +140,12 @@ namespace uvweb
                     else if (msg->type == uvweb::WebSocketMessageType::Close)
                     {
                         spdlog::debug("Connection to {} closed", _baseUrl);
+                    }
+                    else if (msg->type == uvweb::WebSocketMessageType::Close)
+                    {
+                        spdlog::error("Connection Error {}, reason {}",
+                                      msg->errorInfo->http_status,
+                                      msg->errorInfo->reason);
                     }
                 });
 

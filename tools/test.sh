@@ -17,6 +17,16 @@ test3() {
     kill `cat /tmp/pid`
 }
 
+test4() {
+    # cobra run
+    sleep 0.5
+    build/cli/uvweb-pulsar-client --debug \
+        --tenant public --namespace default --topic atopic \
+        --url http://127.0.0.1:8765 \
+        --msg 'hello world'
+}
+
+# test4
 test3
 test2
 test1
