@@ -76,7 +76,8 @@ int main(int argc, char* argv[])
 class AutorouteWebSocketClient : public uvweb::WebSocketClient
 {
 public:
-    std::atomic<uint64_t> receivedCountPerSecs;
+    uint64_t receivedCountPerSecs;
+    std::shared_ptr<uvw::TimerHandle> timer;
 
     uint64_t target;
     std::chrono::time_point<std::chrono::high_resolution_clock> start;
@@ -98,10 +99,13 @@ public:
                 spdlog::info("AUTOROUTE uvweb :: {} ms", duration);
 
                 close(); // ??
+                timer->close();
             }
         }
         else if (msg->type == uvweb::WebSocketMessageType::Open)
         {
+            createTimer();
+
             spdlog::info("uvweb autoroute: connected");
             spdlog::info("Uri: {}", msg->openInfo->uri);
             spdlog::info("Headers:");
@@ -113,11 +117,24 @@ public:
             start = std::chrono::high_resolution_clock::now();
         }
     }
+
+    void createTimer()
+    {
+        auto loop = uvw::Loop::getDefault();
+        timer = loop->resource<uvw::TimerHandle>();
+        timer->on<uvw::TimerEvent>([this](const auto&, auto& hndl) {
+            std::stringstream ss;
+            ss << "messages received per second: " << receivedCountPerSecs;
+
+            spdlog::info(ss.str());
+            receivedCountPerSecs = 0;
+        });
+        timer->start(uvw::TimerHandle::Time {0}, uvw::TimerHandle::Time {1000});
+    }
 };
 
 void autoroute(Args& args)
 {
-    std::atomic<bool> stop(false);
     AutorouteWebSocketClient webSocketClient;
     webSocketClient.target = args.msgCount;
     webSocketClient.receivedCountPerSecs = 0;
@@ -127,33 +144,8 @@ void autoroute(Args& args)
     fullUrl += std::to_string(args.msgCount);
     webSocketClient.connect(fullUrl);
 
-    auto timer = [&webSocketClient, &stop] {
-        while (!stop)
-        {
-            //
-            // We cannot write to sentCount and receivedCount
-            // as those are used externally, so we need to introduce
-            // our own counters
-            //
-            std::stringstream ss;
-            ss << "messages received per second: " << webSocketClient.receivedCountPerSecs;
-
-            spdlog::info(ss.str());
-
-            webSocketClient.receivedCountPerSecs = 0;
-
-            auto duration = std::chrono::seconds(1);
-            std::this_thread::sleep_for(duration);
-        }
-    };
-
-    std::thread t1(timer);
-
     auto loop = uvw::Loop::getDefault();
     loop->run();
-
-    stop = true;
-    t1.join();
 }
 
 void autobahn(Args& args)
