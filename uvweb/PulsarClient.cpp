@@ -280,10 +280,15 @@ namespace uvweb
         }
     }
 
-    void PulsarClient::reportStats()
+    void PulsarClient::reportStats() const
     {
         std::cout << "== Pulsar client statistics ==" << std::endl;
         std::cout << "Delivered messages: " << _deliveredMessages << std::endl;
         std::cout << "Dropped messages: " << _droppedMessages << std::endl;
+    }
+
+    bool PulsarClient::allPublishedMessagesProcessed() const
+    {
+        return _queue.empty() && _publishCallbacks.empty() && _publishTimers.empty();
     }
 } // namespace uvweb

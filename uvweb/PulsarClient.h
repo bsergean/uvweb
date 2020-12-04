@@ -41,7 +41,11 @@ namespace uvweb
 
         void close();
 
-        void reportStats();
+        void reportStats() const;
+
+        // Tells whether the queue is empty, and all callbacks were invoked
+        // whether the message delivery was successfull or not
+        bool allPublishedMessagesProcessed() const;
 
     private:
         std::pair<bool, std::shared_ptr<WebSocketClient>> getWebSocketClient(const std::string& key);

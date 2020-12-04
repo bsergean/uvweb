@@ -1,4 +1,8 @@
 
+//
+// https://pulsar.apache.org/docs/en/client-libraries-cpp/
+//
+
 #include "PulsarOptions.h"
 #include <iostream>
 #include <spdlog/spdlog.h>
@@ -36,8 +40,11 @@ int main(int argc, char* argv[])
         timer->on<uvw::TimerEvent>([&args, &pulsarClient](const auto&, auto& handle) {
             if (args.messages.empty())
             {
-                handle.close();
-                pulsarClient.close();
+                if (pulsarClient.allPublishedMessagesProcessed())
+                {
+                    handle.close();
+                    pulsarClient.close();
+                }
                 return;
             }
 

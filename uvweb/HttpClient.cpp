@@ -140,7 +140,9 @@ namespace uvweb
         client.write(std::move(buff), str.length());
     }
 
-    void HttpClient::fetch(const std::string& url)
+    void HttpClient::fetch(
+        const std::string& url,
+        const OnResponseCallback& onResponseCallback)
     {
         std::string protocol, host, path, query;
         int port;
@@ -164,19 +166,22 @@ namespace uvweb
         auto request = loop->resource<uvw::GetAddrInfoReq>();
 
         request->on<uvw::ErrorEvent>([host, port](const uvw::ErrorEvent& errorEvent, auto& /* handle */) {
+            // FIXME emit onResponseCallback
             spdlog::error(
                 "Connection to {}:{} failed : {}", host, port, errorEvent.name());
         });
 
-        request->on<uvw::AddrInfoEvent>([this](const auto& addrInfoEvent, auto& /* handle */) {
+        request->on<uvw::AddrInfoEvent>([this, onResponseCallback](const auto& addrInfoEvent, auto& /* handle */) {
             sockaddr addr = *(addrInfoEvent.data)->ai_addr;
-            fetch(addr);
+            fetch(addr, onResponseCallback);
         });
 
         request->addrInfo(host, std::to_string(port));
     }
 
-    void HttpClient::fetch(const sockaddr& addr)
+    void HttpClient::fetch(
+        const sockaddr& addr,
+        const OnResponseCallback& onResponseCallback)
     {
         auto loop = uvw::Loop::getDefault();
         auto client = loop->resource<uvw::TCPHandle>();
@@ -203,6 +208,7 @@ namespace uvweb
         // On Error
         client->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent& errorEvent,
                                            uvw::TCPHandle&) {
+            // FIXME emit onResponseCallback
             spdlog::error("Connection to {} on port {} failed : {}", mRequest.host, mRequest.port, errorEvent.name());
         });
 
@@ -212,7 +218,7 @@ namespace uvweb
                 writeRequest(client);
             });
 
-        client->on<uvw::DataEvent>([response, parser, &settings](const uvw::DataEvent& event,
+        client->on<uvw::DataEvent>([response, parser, &settings, onResponseCallback](const uvw::DataEvent& event,
                                                                  uvw::TCPHandle& client) {
             int nparsed = http_parser_execute(parser, &settings, event.data.get(), event.length);
 
@@ -231,6 +237,7 @@ namespace uvweb
             if (response->messageComplete)
             {
                 spdlog::info("Message complete, status code: {}", response->statusCode);
+                onResponseCallback(response);
                 client.close();
             }
         });

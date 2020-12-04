@@ -4,11 +4,13 @@
 #include <uvw.hpp>
 #include "http_parser.h"
 
+#include "WebSocketHttpHeaders.h"
+
 namespace uvweb
 {
     struct Request
     {
-        std::map<std::string, std::string> headers;
+        WebSocketHttpHeaders headers;
         std::string currentHeaderName;
         std::string currentHeaderValue;
         std::string url;
@@ -34,7 +36,10 @@ namespace uvweb
         virtual void processRequest(std::shared_ptr<Request> request, 
                                     Response& response);
 
-        void writeResponse(const Response& response, uvw::TCPHandle& client);
+        void writeResponse(
+            std::shared_ptr<Request> request,
+            const Response& response,
+            uvw::TCPHandle& client);
 
     private:
         http_parser_settings mSettings;
