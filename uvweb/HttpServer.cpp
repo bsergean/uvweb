@@ -160,7 +160,7 @@ namespace uvweb
                         response.description = "KO";
                         response.body = ss.str();
 
-                        writeResponse(response, client);
+                        writeResponse(request, response, client);
                         return;
                     }
 
@@ -169,7 +169,7 @@ namespace uvweb
                     {
                         Response response;
                         processRequest(request, response);
-                        writeResponse(response, client);
+                        writeResponse(request, response, client);
                     }
                 });
 
@@ -183,7 +183,10 @@ namespace uvweb
         tcp->listen();
     }
 
-    void HttpServer::writeResponse(const Response& response, uvw::TCPHandle& client)
+    void HttpServer::writeResponse(
+        std::shared_ptr<Request> request,
+        const Response& response,
+        uvw::TCPHandle& client)
     {
         // Write the response to the socket
         std::stringstream ss;
@@ -193,8 +196,18 @@ namespace uvweb
         ss << response.description;
         ss << "\r\n";
 
+        std::string body = response.body;
+
+        auto acceptEncoding = request->headers["Accept-Encoding"];
+        spdlog::debug("Request Accept-Encoding: {}", acceptEncoding);
+
         // Write headers
-        ss << "Content-Length: " << response.body.size() << "\r\n";
+        if (acceptEncoding == "gzip")
+        {
+            ss << "Content-Encoding: gzip" << "\r\n";
+            body = gzipCompress(body);
+        }
+        ss << "Content-Length: " << body.size() << "\r\n";
         ss << "Server: uvw-server"
            << "\r\n";
         for (auto&& it : response.headers)
@@ -202,7 +215,7 @@ namespace uvweb
             ss << it.first << ": " << it.second << "\r\n";
         }
         ss << "\r\n";
-        ss << response.body;
+        ss << body;
 
         auto str = ss.str();
         spdlog::debug("Server response: {}", str);

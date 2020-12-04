@@ -11,7 +11,7 @@ test2() {
 }
 
 test3() {
-    build/cli/uvweb-server --info --pidfile /tmp/pid --port 5678 &
+    build/cli/uvweb-server --trace --pidfile /tmp/pid --port 5678 &
     sleep 0.5
     build/cli/uvweb-client --info http://127.0.0.1:5678
     kill `cat /tmp/pid`
@@ -26,7 +26,7 @@ test4() {
         --msg 'hello world'
 }
 
-# test4
+#test4
 test3
-test2
-test1
+#test2
+#test1
