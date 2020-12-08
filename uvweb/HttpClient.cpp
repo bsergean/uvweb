@@ -33,7 +33,7 @@ namespace uvweb
 
         for (const auto& it : response->headers)
         {
-            spdlog::debug("{}: {}", it.first, it.second);
+            SPDLOG_DEBUG("{}: {}", it.first, it.second);
         }
 
         return 0;
@@ -46,7 +46,7 @@ namespace uvweb
 
         if (response->headers["Content-Encoding"] == "gzip")
         {
-            spdlog::debug("decoding gzipped body");
+            SPDLOG_DEBUG("decoding gzipped body");
 
             std::string decompressedBody;
             if (!gzipDecompress(response->body, decompressedBody))
@@ -56,7 +56,7 @@ namespace uvweb
             response->body = decompressedBody;
         }
 
-        spdlog::debug("body value {}", response->body);
+        SPDLOG_DEBUG("body value {}", response->body);
         return 0;
     }
 
@@ -65,7 +65,7 @@ namespace uvweb
         Response* response = reinterpret_cast<Response*>(parser->data);
         response->currentHeaderName = std::string(at, length);
 
-        spdlog::debug("on header field {}", response->currentHeaderName);
+        SPDLOG_DEBUG("on header field {}", response->currentHeaderName);
         return 0;
     }
 
@@ -76,7 +76,7 @@ namespace uvweb
 
         response->headers[response->currentHeaderName] = response->currentHeaderValue;
 
-        spdlog::debug("on header value {}", response->currentHeaderValue);
+        SPDLOG_DEBUG("on header value {}", response->currentHeaderValue);
         return 0;
     }
 
@@ -86,7 +86,7 @@ namespace uvweb
         auto body = std::string(at, length);
         response->body += body;
 
-        spdlog::debug("on body {}", body);
+        SPDLOG_DEBUG("on body {}", body);
         return 0;
     }
 
@@ -133,7 +133,7 @@ namespace uvweb
         }
 
         auto str = ss.str();
-        spdlog::debug("Client request: {}", str);
+        SPDLOG_DEBUG("Client request: {}", str);
         auto buff = std::make_unique<char[]>(str.length());
         std::copy_n(str.c_str(), str.length(), buff.get());
 
@@ -151,7 +151,7 @@ namespace uvweb
         {
             std::stringstream ss;
             ss << "Could not parse url: '" << url << "'";
-            spdlog::error(ss.str());
+            SPDLOG_ERROR(ss.str());
             return;
         }
 
@@ -167,7 +167,7 @@ namespace uvweb
 
         request->on<uvw::ErrorEvent>([host, port](const uvw::ErrorEvent& errorEvent, auto& /* handle */) {
             // FIXME emit onResponseCallback
-            spdlog::error(
+            SPDLOG_ERROR(
                 "Connection to {}:{} failed : {}", host, port, errorEvent.name());
         });
 
@@ -209,7 +209,7 @@ namespace uvweb
         client->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent& errorEvent,
                                            uvw::TCPHandle&) {
             // FIXME emit onResponseCallback
-            spdlog::error("Connection to {} on port {} failed : {}", mRequest.host, mRequest.port, errorEvent.name());
+            SPDLOG_ERROR("Connection to {} on port {} failed : {}", mRequest.host, mRequest.port, errorEvent.name());
         });
 
         // On connect
@@ -229,14 +229,14 @@ namespace uvweb
                    << "description: " << http_errno_description(HTTP_PARSER_ERRNO(parser))
                    << " error name " << http_errno_name(HTTP_PARSER_ERRNO(parser)) << " nparsed "
                    << nparsed << " event.length " << event.length;
-                spdlog::error(ss.str());
+                SPDLOG_ERROR(ss.str());
                 return;
             }
 
             // Write response
             if (response->messageComplete)
             {
-                spdlog::info("Message complete, status code: {}", response->statusCode);
+                SPDLOG_INFO("Message complete, status code: {}", response->statusCode);
                 onResponseCallback(response);
                 client.close();
             }

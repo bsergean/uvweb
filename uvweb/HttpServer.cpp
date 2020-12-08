@@ -34,10 +34,10 @@ namespace uvweb
     {
         Request* request = reinterpret_cast<Request*>(parser->data);
 
-        spdlog::debug("All headers parsed");
+        SPDLOG_DEBUG("All headers parsed");
         for (const auto& it : request->headers)
         {
-            spdlog::debug("{}: {}", it.first, it.second);
+            SPDLOG_DEBUG("{}: {}", it.first, it.second);
         }
 
         return 0;
@@ -50,7 +50,7 @@ namespace uvweb
 
         if (request->headers["Content-Encoding"] == "gzip")
         {
-            spdlog::debug("decoding gzipped body");
+            SPDLOG_DEBUG("decoding gzipped body");
 
             std::string decompressedBody;
             if (!gzipDecompress(request->body, decompressedBody))
@@ -60,7 +60,7 @@ namespace uvweb
             request->body = decompressedBody;
         }
 
-        spdlog::debug("body value {}", request->body);
+        SPDLOG_DEBUG("body value {}", request->body);
         return 0;
     }
 
@@ -69,7 +69,7 @@ namespace uvweb
         Request* request = reinterpret_cast<Request*>(parser->data);
         request->currentHeaderName = std::string(at, length);
 
-        spdlog::debug("on header field {}", request->currentHeaderName);
+        SPDLOG_DEBUG("on header field {}", request->currentHeaderName);
         return 0;
     }
 
@@ -80,7 +80,7 @@ namespace uvweb
 
         request->headers[request->currentHeaderName] = request->currentHeaderValue;
 
-        spdlog::debug("on header value {}", request->currentHeaderValue);
+        SPDLOG_DEBUG("on header value {}", request->currentHeaderValue);
         return 0;
     }
 
@@ -90,7 +90,7 @@ namespace uvweb
         auto body = std::string(at, length);
         request->body += body;
 
-        spdlog::debug("on body {}", body);
+        SPDLOG_DEBUG("on body {}", body);
         return 0;
     }
 
@@ -116,7 +116,7 @@ namespace uvweb
 
         tcp->on<uvw::ErrorEvent>([](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle&) {
             /* something went wrong */
-            spdlog::error("Listen socket error {}", errorEvent.name());
+            SPDLOG_ERROR("Listen socket error {}", errorEvent.name());
         });
 
         tcp->on<uvw::ListenEvent>([this](const uvw::ListenEvent&, uvw::TCPHandle& srv) {
@@ -127,7 +127,7 @@ namespace uvweb
             client->on<uvw::ErrorEvent>(
                 [](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle& client) {
                     /* something went wrong */
-                    spdlog::error("socket error {}", errorEvent.name());
+                    SPDLOG_ERROR("socket error {}", errorEvent.name());
                     client.close();
                 });
 
@@ -142,7 +142,7 @@ namespace uvweb
             client->on<uvw::DataEvent>(
                 [request, parser, this](const uvw::DataEvent& event, uvw::TCPHandle& client) {
                     auto data = std::string(event.data.get(), event.length);
-                    spdlog::trace("DataEvent: {}", data);
+                    SPDLOG_TRACE("DataEvent: {}", data);
 
                     int nparsed =
                         http_parser_execute(parser, &mSettings, event.data.get(), event.length);
@@ -177,7 +177,7 @@ namespace uvweb
             client->read();
         });
 
-        spdlog::info("Listening on {}:{}", _host, _port);
+        SPDLOG_INFO("Listening on {}:{}", _host, _port);
 
         tcp->bind(_host, _port);
         tcp->listen();
@@ -199,7 +199,7 @@ namespace uvweb
         std::string body = response.body;
 
         auto acceptEncoding = request->headers["Accept-Encoding"];
-        spdlog::debug("Request Accept-Encoding: {}", acceptEncoding);
+        SPDLOG_DEBUG("Request Accept-Encoding: {}", acceptEncoding);
 
         // Write headers
         if (acceptEncoding == "gzip")
@@ -218,7 +218,7 @@ namespace uvweb
         ss << body;
 
         auto str = ss.str();
-        spdlog::debug("Server response: {}", str);
+        SPDLOG_DEBUG("Server response: {}", str);
         auto buff = std::make_unique<char[]>(str.length());
         std::copy_n(str.c_str(), str.length(), buff.get());
 

@@ -52,11 +52,11 @@ int main(int argc, char* argv[])
         {
             std::cout << "Connection established" << std::endl;
 
-            spdlog::info("Uri: {}", msg->openInfo->uri);
-            spdlog::info("Headers:");
+            SPDLOG_INFO("Uri: {}", msg->openInfo->uri);
+            SPDLOG_INFO("Headers:");
             for (auto it : msg->openInfo->headers)
             {
-                spdlog::info("{}: {}", it.first, it.second);
+                SPDLOG_INFO("{}: {}", it.first, it.second);
             }
 
             if (!webSocketClient.sendText("Hello world"))
@@ -96,7 +96,7 @@ public:
                     std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
                 auto duration = milliseconds.count();
 
-                spdlog::info("AUTOROUTE uvweb :: {} ms", duration);
+                SPDLOG_INFO("AUTOROUTE uvweb :: {} ms", duration);
 
                 close(); // ??
                 timer->close();
@@ -106,12 +106,12 @@ public:
         {
             createTimer();
 
-            spdlog::info("uvweb autoroute: connected");
-            spdlog::info("Uri: {}", msg->openInfo->uri);
-            spdlog::info("Headers:");
+            SPDLOG_INFO("uvweb autoroute: connected");
+            SPDLOG_INFO("Uri: {}", msg->openInfo->uri);
+            SPDLOG_INFO("Headers:");
             for (auto it : msg->openInfo->headers)
             {
-                spdlog::info("{}: {}", it.first, it.second);
+                SPDLOG_INFO("{}: {}", it.first, it.second);
             }
 
             start = std::chrono::high_resolution_clock::now();
@@ -126,7 +126,7 @@ public:
             std::stringstream ss;
             ss << "messages received per second: " << receivedCountPerSecs;
 
-            spdlog::info(ss.str());
+            SPDLOG_INFO(ss.str());
             receivedCountPerSecs = 0;
         });
         timer->start(uvw::TimerHandle::Time {0}, uvw::TimerHandle::Time {1000});
@@ -166,12 +166,12 @@ void autobahn(Args& args)
             }
             else if (msg->type == uvweb::WebSocketMessageType::Open)
             {
-                spdlog::debug("uvweb autobahn: connected");
-                spdlog::debug("Uri: {}", msg->openInfo->uri);
-                spdlog::debug("Headers:");
+                SPDLOG_DEBUG("uvweb autobahn: connected");
+                SPDLOG_DEBUG("Uri: {}", msg->openInfo->uri);
+                SPDLOG_DEBUG("Headers:");
                 for (auto it : msg->openInfo->headers)
                 {
-                    spdlog::debug("{}: {}", it.first, it.second);
+                    SPDLOG_DEBUG("{}: {}", it.first, it.second);
                 }
             }
         });
@@ -186,7 +186,7 @@ void autobahn(Args& args)
 
     if (testCasesCount == -1)
     {
-        spdlog::error("Cannot retrieve test case count at url {}", args.url);
+        SPDLOG_ERROR("Cannot retrieve test case count at url {}", args.url);
         return;
     }
 
@@ -212,12 +212,12 @@ void autobahn(Args& args)
                 }
                 else if (msg->type == uvweb::WebSocketMessageType::Open)
                 {
-                    spdlog::debug("uvweb autobahn: connected");
-                    spdlog::debug("Uri: {}", msg->openInfo->uri);
-                    spdlog::debug("Headers:");
+                    SPDLOG_DEBUG("uvweb autobahn: connected");
+                    SPDLOG_DEBUG("Uri: {}", msg->openInfo->uri);
+                    SPDLOG_DEBUG("Headers:");
                     for (auto it : msg->openInfo->headers)
                     {
-                        spdlog::debug("{}: {}", it.first, it.second);
+                        SPDLOG_DEBUG("{}: {}", it.first, it.second);
                     }
                 }
             });
@@ -226,7 +226,7 @@ void autobahn(Args& args)
         loop->run();
     }
 
-    spdlog::info("Generate report");
+    SPDLOG_INFO("Generate report");
 
     std::stringstream ss;
     ss << args.url << "/updateReports?agent=uvweb";
@@ -280,12 +280,12 @@ void shell(Args& args)
     auto handle = loop->resource<uvw::TTYHandle>(uvw::StdIN, true);
     if (!handle->init())
     {
-        spdlog::info("Cannot init handle");
+        SPDLOG_INFO("Cannot init handle");
         return;
     }
     if (!handle->mode(uvw::TTYHandle::Mode::NORMAL))
     {
-        spdlog::info("Cannot set tty mode");
+        SPDLOG_INFO("Cannot set tty mode");
         return;
     }
 

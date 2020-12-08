@@ -54,11 +54,11 @@ namespace uvweb
                 }
                 else if (msg->type == uvweb::WebSocketMessageType::Open)
                 {
-                    spdlog::debug("Connection to {} established", _baseUrl);
+                    SPDLOG_DEBUG("Connection to {} established", _baseUrl);
                 }
                 else if (msg->type == uvweb::WebSocketMessageType::Close)
                 {
-                    spdlog::debug("Connection to {} closed", _baseUrl);
+                    SPDLOG_DEBUG("Connection to {} closed", _baseUrl);
                 }
             });
 
@@ -94,7 +94,7 @@ namespace uvweb
         //
         if (_queue.size() == _maxQueueSize)
         {
-            spdlog::warn("Max queue size reached. Dropping old messages");
+            SPDLOG_WARN("Max queue size reached. Dropping old messages");
             _queue.pop_front();
         }
 
@@ -128,11 +128,11 @@ namespace uvweb
                     }
                     else if (msg->type == uvweb::WebSocketMessageType::Open)
                     {
-                        spdlog::debug("Connection to {} established", _baseUrl);
+                        SPDLOG_DEBUG("Connection to {} established", _baseUrl);
                     }
                     else if (msg->type == uvweb::WebSocketMessageType::Close)
                     {
-                        spdlog::debug("Connection to {} closed", _baseUrl);
+                        SPDLOG_DEBUG("Connection to {} closed", _baseUrl);
                     }
                 });
 
@@ -171,24 +171,24 @@ namespace uvweb
 
     void PulsarClient::processProducerReceivedMessage(const std::string& str)
     {
-        spdlog::debug("received message: {}", str);
+        SPDLOG_DEBUG("received message: {}", str);
 
         nlohmann::json pdu;
         try
         {
             pdu = nlohmann::json::parse(str);
-            spdlog::debug("message is valid json");
+            SPDLOG_DEBUG("message is valid json");
         }
         catch (const nlohmann::json::parse_error& e)
         {
-            spdlog::error("malformed json pdu: {}, error: {}", str, e.what());
+            SPDLOG_ERROR("malformed json pdu: {}, error: {}", str, e.what());
             return;
         }
 
         auto success = pdu.value("result", "n/a");
         if (success != "ok")
         {
-            spdlog::error("error response: {}", success);
+            SPDLOG_ERROR("error response: {}", success);
             return;
         }
 
@@ -204,7 +204,7 @@ namespace uvweb
         }
         else
         {
-            spdlog::warn("orphan context: {}", context);
+            SPDLOG_WARN("orphan context: {}", context);
         }
     }
 
@@ -227,7 +227,7 @@ namespace uvweb
                 }
                 else
                 {
-                    spdlog::debug("Error sending data to {}", url); // will retry
+                    SPDLOG_DEBUG("Error sending data to {}", url); // will retry
                 }
             }
         });
@@ -239,17 +239,17 @@ namespace uvweb
         const OnSubscribeResponseCallback& callback,
         std::shared_ptr<WebSocketClient> webSocketClient)
     {
-        spdlog::debug("received message: {}", str);
+        SPDLOG_DEBUG("received message: {}", str);
 
         nlohmann::json pdu;
         try
         {
             pdu = nlohmann::json::parse(str);
-            spdlog::debug("message is valid json");
+            SPDLOG_DEBUG("message is valid json");
         }
         catch (const nlohmann::json::parse_error& e)
         {
-            spdlog::error("malformed json pdu: {}, error: {}", str, e.what());
+            SPDLOG_ERROR("malformed json pdu: {}, error: {}", str, e.what());
             return;
         }
 
@@ -265,7 +265,7 @@ namespace uvweb
             // Acknowledge message
             if (!webSocketClient->sendText(data.dump()))
             {
-                spdlog::error("Error acknowledging message id {}", messageId);
+                SPDLOG_ERROR("Error acknowledging message id {}", messageId);
             }
         }
     }

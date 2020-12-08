@@ -40,7 +40,7 @@ namespace uvweb
 
         for (const auto& it : response->headers)
         {
-            spdlog::debug("{}: {}", it.first, it.second);
+            SPDLOG_DEBUG("{}: {}", it.first, it.second);
         }
 
         return 0;
@@ -53,7 +53,7 @@ namespace uvweb
 
         if (response->headers["Content-Encoding"] == "gzip")
         {
-            spdlog::debug("decoding gzipped body");
+            SPDLOG_DEBUG("decoding gzipped body");
 
             std::string decompressedBody;
             if (!gzipDecompress(response->body, decompressedBody))
@@ -63,7 +63,7 @@ namespace uvweb
             response->body = decompressedBody;
         }
 
-        spdlog::debug("body value {}", response->body);
+        SPDLOG_DEBUG("body value {}", response->body);
         return 0;
     }
 
@@ -72,7 +72,7 @@ namespace uvweb
         Response* response = reinterpret_cast<Response*>(parser->data);
         response->currentHeaderName = std::string(at, length);
 
-        spdlog::debug("on header field {}", response->currentHeaderName);
+        SPDLOG_DEBUG("on header field {}", response->currentHeaderName);
         return 0;
     }
 
@@ -83,7 +83,7 @@ namespace uvweb
 
         response->headers[response->currentHeaderName] = response->currentHeaderValue;
 
-        spdlog::debug("on header value {}", response->currentHeaderValue);
+        SPDLOG_DEBUG("on header value {}", response->currentHeaderValue);
         return 0;
     }
 
@@ -93,7 +93,7 @@ namespace uvweb
         auto body = std::string(at, length);
         response->body += body;
 
-        spdlog::debug("on body {}", body);
+        SPDLOG_DEBUG("on body {}", body);
         return 0;
     }
 
@@ -166,8 +166,8 @@ namespace uvweb
         _automaticReconnectionTimer->on<uvw::TimerEvent>([this](const auto&, auto&) {
             if (!isConnected() && !_url.empty())
             {
-                spdlog::info("Trying to reconnect");
-                spdlog::info("Current Ready state: {}",
+                SPDLOG_INFO("Trying to reconnect");
+                SPDLOG_INFO("Current Ready state: {}",
                              WebSocketClient::readyStateToString(_readyState));
                 connect(_url);
             }
@@ -194,7 +194,7 @@ namespace uvweb
         {
             std::stringstream ss;
             ss << "Could not parse url: '" << url << "'";
-            spdlog::error(ss.str());
+            SPDLOG_ERROR(ss.str());
             return;
         }
 
@@ -210,7 +210,7 @@ namespace uvweb
         auto request = loop->resource<uvw::GetAddrInfoReq>();
 
         request->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent& errorEvent, auto& /* handle */) {
-            spdlog::error(
+            SPDLOG_ERROR(
                 "Connection to {}:{} failed : {}", mRequest.host, mRequest.port, errorEvent.name());
             startReconnectTimer();
         });
@@ -237,7 +237,7 @@ namespace uvweb
 
         // On Error
         _client->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle&) {
-            spdlog::error(
+            SPDLOG_ERROR(
                 "Connection to {}:{} failed : {}", mRequest.host, mRequest.port, errorEvent.name());
 
             // FIXME: maybe call handleReadError(), ported from ix ?
@@ -248,19 +248,19 @@ namespace uvweb
         _client->once<uvw::ConnectEvent>([this](const uvw::ConnectEvent&, uvw::TCPHandle&) {
             if (!writeHandshakeRequest())
             {
-                spdlog::error("Error sending handshake");
+                SPDLOG_ERROR("Error sending handshake");
             }
         });
 
         _client->once<uvw::WriteEvent>([](const uvw::WriteEvent&, uvw::TCPHandle& client) {
-            spdlog::debug("Data written to socket");
+            SPDLOG_DEBUG("Data written to socket");
         });
 
         _client->on<uvw::DataEvent>([this, response](const uvw::DataEvent& event,
                                                      uvw::TCPHandle& client) {
             if (mHandshaked)
             {
-                spdlog::debug("Received {} bytes", event.length);
+                SPDLOG_DEBUG("Received {} bytes", event.length);
                 dispatch(event);
             }
             else
@@ -270,7 +270,7 @@ namespace uvweb
                 // Write response
                 if (_httpParser->upgrade)
                 {
-                    spdlog::info("HTTP Upgrade, status code: {}", response->statusCode);
+                    SPDLOG_INFO("HTTP Upgrade, status code: {}", response->statusCode);
 
                     // FIXME: missing validation of WebSocket Key header
 
@@ -308,15 +308,15 @@ namespace uvweb
                        << "description: " << http_errno_description(HTTP_PARSER_ERRNO(_httpParser))
                        << " error name " << http_errno_name(HTTP_PARSER_ERRNO(_httpParser))
                        << " nparsed " << nparsed << " event.length " << event.length;
-                    spdlog::error(ss.str());
+                    SPDLOG_ERROR(ss.str());
 
                     std::string msg(event.data.get(), event.length);
-                    spdlog::debug("Msg received: {}", msg);
+                    SPDLOG_DEBUG("Msg received: {}", msg);
                     return;
                 }
                 else if (response->messageComplete)
                 {
-                    spdlog::info("Http requests fully parsed. HTTP status code: {}",
+                    SPDLOG_INFO("Http requests fully parsed. HTTP status code: {}",
                                  response->statusCode);
                 }
             }
@@ -363,14 +363,14 @@ namespace uvweb
         }
         ss << "\r\n";
 
-        spdlog::debug(ss.str());
+        SPDLOG_DEBUG(ss.str());
 
         return sendOnSocket(ss.str());
     }
 
     bool WebSocketClient::sendOnSocket(const std::string& str)
     {
-        spdlog::debug("sendOnSocket {} bytes", str.size());
+        SPDLOG_DEBUG("sendOnSocket {} bytes", str.size());
         auto buff = std::make_unique<char[]>(str.length());
         std::copy_n(str.c_str(), str.length(), buff.get());
 
@@ -380,7 +380,7 @@ namespace uvweb
 
     bool WebSocketClient::sendOnSocket(const std::vector<uint8_t>& vec)
     {
-        spdlog::debug("sendOnSocket {} bytes", vec.size());
+        SPDLOG_DEBUG("sendOnSocket {} bytes", vec.size());
         auto buff = std::make_unique<char[]>(vec.size());
         std::copy_n(&vec.front(), vec.size(), buff.get());
 
@@ -710,7 +710,7 @@ namespace uvweb
 
         _readyState = readyState;
 
-        spdlog::debug("New Ready state: {}", WebSocketClient::readyStateToString(_readyState));
+        SPDLOG_DEBUG("New Ready state: {}", WebSocketClient::readyStateToString(_readyState));
     }
 
     //
