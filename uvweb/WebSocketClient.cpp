@@ -139,14 +139,14 @@ namespace uvweb
         , _pingCount(0)
     {
         // Register http parser callbacks
-        memset(&mSettings, 0, sizeof(mSettings));
-        mSettings.on_message_begin = on_message_begin;
-        mSettings.on_status = on_status;
-        mSettings.on_headers_complete = on_headers_complete;
-        mSettings.on_message_complete = on_message_complete;
-        mSettings.on_header_field = on_header_field;
-        mSettings.on_header_value = on_header_value;
-        mSettings.on_body = on_body;
+        memset(&_settings, 0, sizeof(_settings));
+        _settings.on_message_begin = on_message_begin;
+        _settings.on_status = on_status;
+        _settings.on_headers_complete = on_headers_complete;
+        _settings.on_message_complete = on_message_complete;
+        _settings.on_header_field = on_header_field;
+        _settings.on_header_value = on_header_value;
+        _settings.on_body = on_body;
     }
 
     WebSocketClient::~WebSocketClient()
@@ -226,17 +226,17 @@ namespace uvweb
     void WebSocketClient::connect(const sockaddr& addr)
     {
         auto loop = uvw::Loop::getDefault();
-        mClient = loop->resource<uvw::TCPHandle>();
-        mHttpParser = std::make_shared<http_parser>();
-        http_parser_init(mHttpParser.get(), HTTP_RESPONSE);
+        _client = loop->resource<uvw::TCPHandle>();
+        _httpParser = std::make_shared<http_parser>();
+        http_parser_init(_httpParser.get(), HTTP_RESPONSE);
 
         auto response = std::make_shared<Response>();
-        mClient->data(response);
+        _client->data(response);
 
-        mHttpParser->data = mClient->data().get();
+        _httpParser->data = _client->data().get();
 
         // On Error
-        mClient->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle&) {
+        _client->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle&) {
             spdlog::error(
                 "Connection to {}:{} failed : {}", mRequest.host, mRequest.port, errorEvent.name());
 
@@ -245,18 +245,18 @@ namespace uvweb
         });
 
         // On connect
-        mClient->once<uvw::ConnectEvent>([this](const uvw::ConnectEvent&, uvw::TCPHandle&) {
+        _client->once<uvw::ConnectEvent>([this](const uvw::ConnectEvent&, uvw::TCPHandle&) {
             if (!writeHandshakeRequest())
             {
                 spdlog::error("Error sending handshake");
             }
         });
 
-        mClient->once<uvw::WriteEvent>([](const uvw::WriteEvent&, uvw::TCPHandle& client) {
+        _client->once<uvw::WriteEvent>([](const uvw::WriteEvent&, uvw::TCPHandle& client) {
             spdlog::debug("Data written to socket");
         });
 
-        mClient->on<uvw::DataEvent>([this, response](const uvw::DataEvent& event,
+        _client->on<uvw::DataEvent>([this, response](const uvw::DataEvent& event,
                                                      uvw::TCPHandle& client) {
             if (mHandshaked)
             {
@@ -266,9 +266,9 @@ namespace uvweb
             else
             {
                 int nparsed = http_parser_execute(
-                    mHttpParser.get(), &mSettings, event.data.get(), event.length);
+                    _httpParser.get(), &_settings, event.data.get(), event.length);
                 // Write response
-                if (mHttpParser->upgrade)
+                if (_httpParser->upgrade)
                 {
                     spdlog::info("HTTP Upgrade, status code: {}", response->statusCode);
 
@@ -305,8 +305,8 @@ namespace uvweb
                 {
                     std::stringstream ss;
                     ss << "HTTP Parsing Error: "
-                       << "description: " << http_errno_description(HTTP_PARSER_ERRNO(mHttpParser))
-                       << " error name " << http_errno_name(HTTP_PARSER_ERRNO(mHttpParser))
+                       << "description: " << http_errno_description(HTTP_PARSER_ERRNO(_httpParser))
+                       << " error name " << http_errno_name(HTTP_PARSER_ERRNO(_httpParser))
                        << " nparsed " << nparsed << " event.length " << event.length;
                     spdlog::error(ss.str());
 
@@ -322,8 +322,8 @@ namespace uvweb
             }
         });
 
-        mClient->connect(addr);
-        mClient->read(); // necessary or nothing happens
+        _client->connect(addr);
+        _client->read(); // necessary or nothing happens
     }
 
     bool WebSocketClient::writeHandshakeRequest()
@@ -374,7 +374,7 @@ namespace uvweb
         auto buff = std::make_unique<char[]>(str.length());
         std::copy_n(str.c_str(), str.length(), buff.get());
 
-        mClient->write(std::move(buff), str.length());
+        _client->write(std::move(buff), str.length());
         return true;
     }
 
@@ -384,7 +384,7 @@ namespace uvweb
         auto buff = std::make_unique<char[]>(vec.size());
         std::copy_n(&vec.front(), vec.size(), buff.get());
 
-        mClient->write(std::move(buff), vec.size());
+        _client->write(std::move(buff), vec.size());
         return true;
     }
 
@@ -458,7 +458,7 @@ namespace uvweb
 
     void WebSocketClient::closeSocket()
     {
-        mClient->close();
+        _client->close();
     }
 
     void WebSocketClient::sendCloseFrame(uint16_t code, const std::string& reason)

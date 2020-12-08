@@ -21,9 +21,10 @@ test3() {
     kill `cat /tmp/uvweb-server.pid`
 }
 
+# Publish messages
 test4() {
     PORT=6666
-    cobra run --pidfile /tmp/cobra.pid --port $PORT &
+    # cobra run --pidfile /tmp/cobra.pid --no_stats --port $PORT &
     sleep 0.5
     build/cli/uvweb-pulsar-client --info \
         --tenant public --namespace default --topic atopic \
@@ -34,6 +35,28 @@ test4() {
     kill `cat /tmp/cobra.pid`
 }
 
+test5() {
+    PORT=6666
+    # cobra run --pidfile /tmp/cobra.pid --no_stats --port $PORT &
+    sleep 0.5
+    build/cli/uvweb-pulsar-client --debug \
+        --tenant public --namespace default --topic atopic \
+        --subscribe --subscription sub \
+        --url ws://127.0.0.1:$PORT \
+        --repeat 100 --delay 1 &
+
+    sleep 0.5
+
+    # build/cli/uvweb-pulsar-client --info \
+    #     --tenant public --namespace default --topic atopic \
+    #     --url ws://127.0.0.1:$PORT \
+    #     --msg 'hello world' --repeat 100 --delay 1
+
+    # stop server
+    # kill `cat /tmp/cobra.pid`
+}
+
+test5
 test4
 test3
 test2
