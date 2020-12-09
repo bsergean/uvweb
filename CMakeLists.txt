@@ -25,7 +25,8 @@ FetchContent_Declare(spdlog
 
 FetchContent_MakeAvailable(spdlog)
 
-# jsoncpp
+# https://github.com/simdjson/cmake_demo_single_file/blob/master/CMakeLists.txt
+# nloman json
 FetchContent_Declare(json
   GIT_REPOSITORY https://github.com/ArthurSonzogni/nlohmann_json_cmake_fetchcontent
   GIT_TAG v3.9.1
@@ -36,15 +37,6 @@ if(NOT json_POPULATED)
   FetchContent_Populate(json)
   add_subdirectory(${json_SOURCE_DIR} ${json_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
-
-# cxxopts
-include(FetchContent)
-FetchContent_Declare(cxxopts
-    GIT_REPOSITORY "https://github.com/jarro2783/cxxopts"
-    GIT_TAG "v2.1.2"
-    GIT_SHALLOW 1)
-
-FetchContent_MakeAvailable(cxxopts)
 
 # libuv
 FetchContent_Declare(

@@ -1,3 +1,13 @@
+
+# cxxopts
+include(FetchContent)
+FetchContent_Declare(cxxopts
+    GIT_REPOSITORY "https://github.com/jarro2783/cxxopts"
+    GIT_TAG "v2.1.2"
+    GIT_SHALLOW 1)
+
+FetchContent_MakeAvailable(cxxopts)
+
 #
 # server
 #
