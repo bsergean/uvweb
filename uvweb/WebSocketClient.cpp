@@ -316,7 +316,7 @@ namespace uvweb
                 }
                 else if (response->messageComplete)
                 {
-                    SPDLOG_INFO("Http requests fully parsed. HTTP status code: {}",
+                    SPDLOG_ERROR("Http request fully parsed is not a 101 Upgrade. HTTP status code: {}",
                                  response->statusCode);
                 }
             }
