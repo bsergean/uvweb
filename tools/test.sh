@@ -28,7 +28,7 @@ test4() {
     sleep 0.5
     build/cli/uvweb-pulsar-client --info \
         --tenant public --namespace default --topic atopic \
-        --url ws://127.0.0.1:$PORT \
+        --url ws://jeanserge.com:$PORT \
         --msg 'hello world' --repeat 100 --delay 1
 
     # stop server
@@ -42,7 +42,7 @@ test5() {
     build/cli/uvweb-pulsar-client --debug \
         --tenant public --namespace default --topic atopic \
         --subscribe --subscription sub \
-        --url ws://127.0.0.1:$PORT \
+        --url ws://jeanserge.com:$PORT \
         --repeat 100 --delay 1 &
 
     sleep 0.5
