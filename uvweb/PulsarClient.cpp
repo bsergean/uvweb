@@ -6,6 +6,7 @@
 
 #include "PulsarClient.h"
 
+#include "chromiumbase64.h"
 #include "Base64.h"
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -162,7 +163,9 @@ namespace uvweb
     std::string PulsarClient::serializePublishMessage(const std::string& str,
                                                       const std::string& context)
     {
-        std::string payload = base64_encode(str, str.size());
+        std::string payload = str;
+        payload = chromium_base64_encode(payload);
+
         nlohmann::json data = {
             {"payload", payload}, {"context", context}, {"properties", {{"key1", "val1"}}}};
 

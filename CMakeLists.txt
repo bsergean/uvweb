@@ -91,6 +91,7 @@ target_sources(uvweb PRIVATE
   uvweb/WebSocketCloseConstants.cpp
   uvweb/StrCaseCompare.cpp
   uvweb/Base64.cpp
+  uvweb/chromiumbase64.c
   uvweb/PulsarClient.cpp
 )
 
