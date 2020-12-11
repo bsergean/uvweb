@@ -6,8 +6,8 @@
 
 #include "PulsarClient.h"
 
-#include "chromiumbase64.h"
 #include "Base64.h"
+#include "chromiumbase64.h"
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
@@ -22,9 +22,10 @@ namespace uvweb
         , _mId(0)
         , _maxQueueSize(maxQueueSize)
         , _deliveredMessages(0)
+        , _receivedMessages(0)
         , _droppedMessages(0)
     {
-        createQueueProcessor();
+        createPublishQueueProcessor();
     }
 
     void PulsarClient::publish(const std::string& str,
@@ -211,7 +212,7 @@ namespace uvweb
         }
     }
 
-    void PulsarClient::createQueueProcessor()
+    void PulsarClient::createPublishQueueProcessor()
     {
         auto loop = uvw::Loop::getDefault();
         _timer = loop->resource<uvw::TimerHandle>();
@@ -243,6 +244,7 @@ namespace uvweb
         std::shared_ptr<WebSocketClient> webSocketClient)
     {
         SPDLOG_DEBUG("received message: {}", str);
+        _receivedMessages++;
 
         nlohmann::json pdu;
         try
@@ -287,7 +289,8 @@ namespace uvweb
     {
         std::cout << "== Pulsar client statistics ==" << std::endl;
         std::cout << "Delivered messages: " << _deliveredMessages << std::endl;
-        std::cout << "Dropped messages: " << _droppedMessages << std::endl;
+        std::cout << "Received messages: " << _receivedMessages << std::endl;
+        std::cout << "Dropped outgoing messages: " << _droppedMessages << std::endl;
     }
 
     bool PulsarClient::allPublishedMessagesProcessed() const

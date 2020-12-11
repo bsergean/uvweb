@@ -1,19 +1,18 @@
 
 #include "ServerOptions.h"
-#include <uvweb/HttpServer.h>
 #include <uvw.hpp>
+#include <uvweb/HttpServer.h>
 
 class DemoHttpServer : public uvweb::HttpServer
 {
 public:
-    DemoHttpServer(const std::string& host, int port) : uvweb::HttpServer(host, port)
+    DemoHttpServer(const std::string& host, int port)
+        : uvweb::HttpServer(host, port)
     {
         ;
     }
 
-    void processRequest(
-        std::shared_ptr<uvweb::Request> request,
-        uvweb::Response& response) final
+    void processRequest(std::shared_ptr<uvweb::Request> request, uvweb::Response& response) final
     {
         response.statusCode = 200;
         response.description = "OK";

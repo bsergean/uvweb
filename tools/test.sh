@@ -28,31 +28,35 @@ test4() {
     sleep 0.5
     build/cli/uvweb-pulsar-client --info \
         --tenant public --namespace default --topic atopic \
-        --url ws://jeanserge.com:$PORT \
-        --msg 'hello world' --repeat 100 --delay 1
+        --url ws://jeanserge.com:6666 \
+        --msg 'hello world how are you' --repeat 100 --delay 1
 
-    # stop server
-    kill `cat /tmp/cobra.pid`
+    # stop cobra server
+    # kill `cat /tmp/cobra.pid`
 }
 
+# Publish and Subscribe
 test5() {
-    PORT=6666
+    # killall uvweb-pulsar-client
     # cobra run --pidfile /tmp/cobra.pid --no_stats --port $PORT &
-    sleep 0.5
+    PIDFILE=/tmp/pulsar-subscriber.pid
+
+    HOST=127.0.0.1
+    HOST=jeanserge.com
+
     build/cli/uvweb-pulsar-client --debug \
         --tenant public --namespace default --topic atopic \
-        --subscribe --subscription sub \
-        --url ws://jeanserge.com:$PORT \
-        --repeat 100 --delay 1 &
+        --subscribe --subscription sub --max_messages 10 \
+        --url ws://$HOST:6666 &
 
-    sleep 0.5
+    sleep 0.3
 
-    # build/cli/uvweb-pulsar-client --info \
-    #     --tenant public --namespace default --topic atopic \
-    #     --url ws://127.0.0.1:$PORT \
-    #     --msg 'hello world' --repeat 100 --delay 1
+    build/cli/uvweb-pulsar-client --info \
+        --tenant public --namespace default --topic atopic \
+        --url ws://$HOST:6666 \
+        --msg 'hello world' --repeat 10 --delay 1
 
-    # stop server
+    # stop cobra server
     # kill `cat /tmp/cobra.pid`
 }
 

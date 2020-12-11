@@ -183,10 +183,9 @@ namespace uvweb
         tcp->listen();
     }
 
-    void HttpServer::writeResponse(
-        std::shared_ptr<Request> request,
-        const Response& response,
-        uvw::TCPHandle& client)
+    void HttpServer::writeResponse(std::shared_ptr<Request> request,
+                                   const Response& response,
+                                   uvw::TCPHandle& client)
     {
         // Write the response to the socket
         std::stringstream ss;
@@ -204,7 +203,8 @@ namespace uvweb
         // Write headers
         if (acceptEncoding == "gzip")
         {
-            ss << "Content-Encoding: gzip" << "\r\n";
+            ss << "Content-Encoding: gzip"
+               << "\r\n";
             body = gzipCompress(body);
         }
         ss << "Content-Length: " << body.size() << "\r\n";
@@ -225,9 +225,7 @@ namespace uvweb
         client.write(std::move(buff), str.length());
     }
 
-    void HttpServer::processRequest(
-        std::shared_ptr<Request> request,
-        Response& response)
+    void HttpServer::processRequest(std::shared_ptr<Request> request, Response& response)
     {
         ;
     }

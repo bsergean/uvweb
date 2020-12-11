@@ -168,7 +168,7 @@ namespace uvweb
             {
                 SPDLOG_INFO("Trying to reconnect");
                 SPDLOG_INFO("Current Ready state: {}",
-                             WebSocketClient::readyStateToString(_readyState));
+                            WebSocketClient::readyStateToString(_readyState));
                 connect(_url);
             }
         });
@@ -285,7 +285,8 @@ namespace uvweb
                         0,
                         false,
                         nullptr,
-                        std::make_unique<WebSocketOpenInfo>(mRequest.path, response->headers, response->protocol),
+                        std::make_unique<WebSocketOpenInfo>(
+                            mRequest.path, response->headers, response->protocol),
                         nullptr));
 
                     // The input buffer might already contains some non HTTP data
@@ -316,8 +317,9 @@ namespace uvweb
                 }
                 else if (response->messageComplete)
                 {
-                    SPDLOG_ERROR("Http request fully parsed is not a 101 Upgrade. HTTP status code: {}",
-                                 response->statusCode);
+                    SPDLOG_ERROR(
+                        "Http request fully parsed is not a 101 Upgrade. HTTP status code: {}",
+                        response->statusCode);
                 }
             }
         });
@@ -1096,13 +1098,8 @@ namespace uvweb
         bool binary = messageKind == MessageKind::MSG_BINARY;
         size_t wireSize = message.size(); // FIXME zlib compression support
 
-        invokeOnMessageCallback(std::make_unique<WebSocketMessage>(webSocketMessageType,
-                                                                   message,
-                                                                   wireSize,
-                                                                   binary,
-                                                                   nullptr,
-                                                                   nullptr,
-                                                                   nullptr));
+        invokeOnMessageCallback(std::make_unique<WebSocketMessage>(
+            webSocketMessageType, message, wireSize, binary, nullptr, nullptr, nullptr));
     }
 
     void WebSocketClient::setCloseReason(const std::string& reason)

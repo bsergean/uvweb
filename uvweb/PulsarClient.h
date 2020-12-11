@@ -64,7 +64,7 @@ namespace uvweb
             const std::string& str,
             const std::string& context);
 
-        void createQueueProcessor();
+        void createPublishQueueProcessor();
 
         std::map<std::string, std::shared_ptr<WebSocketClient>> _clients;
         std::map<std::string, OnPublishResponseCallback> _publishCallbacks;
@@ -81,7 +81,8 @@ namespace uvweb
         std::shared_ptr<uvw::TimerHandle> _timer;
 
         // Stats
-        size_t _droppedMessages;
         size_t _deliveredMessages;
+        size_t _receivedMessages;
+        size_t _droppedMessages;
     };
 }

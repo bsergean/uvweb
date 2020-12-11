@@ -1,7 +1,7 @@
 
 #include "ClientOptions.h"
-#include <uvweb/HttpClient.h>
 #include <iostream>
+#include <uvweb/HttpClient.h>
 
 int main(int argc, char* argv[])
 {
@@ -15,11 +15,9 @@ int main(int argc, char* argv[])
     uvweb::HttpClient httpClient;
     for (const auto& url : args.urls)
     {
-        httpClient.fetch(url, [](std::shared_ptr<uvweb::Response> response)
-            {
-                std::cout << response->body << std::endl;
-            }
-        );
+        httpClient.fetch(url, [](std::shared_ptr<uvweb::Response> response) {
+            std::cout << response->body << std::endl;
+        });
     }
 
     auto loop = uvw::Loop::getDefault();

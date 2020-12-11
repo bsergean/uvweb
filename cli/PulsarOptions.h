@@ -11,6 +11,7 @@ struct Args
     std::string nameSpace;
     std::string subscription;
     int delay = -1;
+    int maxMessages = -1;
 
     std::vector<std::string> topics;
     std::vector<std::string> messages;

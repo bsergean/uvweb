@@ -140,9 +140,7 @@ namespace uvweb
         client.write(std::move(buff), str.length());
     }
 
-    void HttpClient::fetch(
-        const std::string& url,
-        const OnResponseCallback& onResponseCallback)
+    void HttpClient::fetch(const std::string& url, const OnResponseCallback& onResponseCallback)
     {
         std::string protocol, host, path, query;
         int port;
@@ -165,23 +163,22 @@ namespace uvweb
         // async DNS lookup
         auto request = loop->resource<uvw::GetAddrInfoReq>();
 
-        request->on<uvw::ErrorEvent>([host, port](const uvw::ErrorEvent& errorEvent, auto& /* handle */) {
-            // FIXME emit onResponseCallback
-            SPDLOG_ERROR(
-                "Connection to {}:{} failed : {}", host, port, errorEvent.name());
-        });
+        request->on<uvw::ErrorEvent>(
+            [host, port](const uvw::ErrorEvent& errorEvent, auto& /* handle */) {
+                // FIXME emit onResponseCallback
+                SPDLOG_ERROR("Connection to {}:{} failed : {}", host, port, errorEvent.name());
+            });
 
-        request->on<uvw::AddrInfoEvent>([this, onResponseCallback](const auto& addrInfoEvent, auto& /* handle */) {
-            sockaddr addr = *(addrInfoEvent.data)->ai_addr;
-            fetch(addr, onResponseCallback);
-        });
+        request->on<uvw::AddrInfoEvent>(
+            [this, onResponseCallback](const auto& addrInfoEvent, auto& /* handle */) {
+                sockaddr addr = *(addrInfoEvent.data)->ai_addr;
+                fetch(addr, onResponseCallback);
+            });
 
         request->addrInfo(host, std::to_string(port));
     }
 
-    void HttpClient::fetch(
-        const sockaddr& addr,
-        const OnResponseCallback& onResponseCallback)
+    void HttpClient::fetch(const sockaddr& addr, const OnResponseCallback& onResponseCallback)
     {
         auto loop = uvw::Loop::getDefault();
         auto client = loop->resource<uvw::TCPHandle>();
@@ -206,20 +203,20 @@ namespace uvweb
         parser->data = client->data().get();
 
         // On Error
-        client->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent& errorEvent,
-                                           uvw::TCPHandle&) {
+        client->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent& errorEvent, uvw::TCPHandle&) {
             // FIXME emit onResponseCallback
-            SPDLOG_ERROR("Connection to {} on port {} failed : {}", mRequest.host, mRequest.port, errorEvent.name());
+            SPDLOG_ERROR("Connection to {} on port {} failed : {}",
+                         mRequest.host,
+                         mRequest.port,
+                         errorEvent.name());
         });
 
         // On connect
         client->once<uvw::ConnectEvent>(
-            [this](const uvw::ConnectEvent&, uvw::TCPHandle& client) {
-                writeRequest(client);
-            });
+            [this](const uvw::ConnectEvent&, uvw::TCPHandle& client) { writeRequest(client); });
 
-        client->on<uvw::DataEvent>([response, parser, &settings, onResponseCallback](const uvw::DataEvent& event,
-                                                                 uvw::TCPHandle& client) {
+        client->on<uvw::DataEvent>([response, parser, &settings, onResponseCallback](
+                                       const uvw::DataEvent& event, uvw::TCPHandle& client) {
             int nparsed = http_parser_execute(parser, &settings, event.data.get(), event.length);
 
             if (nparsed != event.length)

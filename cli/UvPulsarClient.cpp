@@ -23,17 +23,36 @@ int main(int argc, char* argv[])
 
     uvweb::PulsarClient pulsarClient(args.url);
 
+    int receivedMessages = 0;
+
     if (args.subscribe)
     {
-        pulsarClient.subscribe(args.tenant,
-                               args.nameSpace,
-                               args.topics[0],
-                               args.subscription,
-                               [](const std::string& msg, const std::string& messageId) -> bool {
-                                   std::cout << "Got message " << msg
-                                             << " message id: " << messageId << std::endl;
-                                   return true;
-                               });
+        pulsarClient.subscribe(
+            args.tenant,
+            args.nameSpace,
+            args.topics[0],
+            args.subscription,
+            [&receivedMessages](const std::string& msg, const std::string& messageId) -> bool {
+                std::cout << "Got message"
+                          << " #" << receivedMessages << " value: " << msg
+                          << " message id: " << messageId << std::endl;
+
+                receivedMessages++;
+                return true;
+            });
+
+        timer->on<uvw::TimerEvent>([&args, &receivedMessages, &pulsarClient](const auto&,
+                                                                             auto& handle) {
+            if (args.maxMessages == receivedMessages)
+            {
+                std::cout << "Received " << receivedMessages << " messages, exiting." << std::endl;
+                handle.close();
+                pulsarClient.close();
+                return;
+            }
+        });
+
+        timer->start(uvw::TimerHandle::Time {0}, uvw::TimerHandle::Time {100});
     }
     else
     {

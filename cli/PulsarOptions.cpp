@@ -64,6 +64,7 @@ bool parseOptions(int argc, char* argv[], Args& args)
         ( "repeat", "Repeat", cxxopts::value<int>() )
         ( "delay", "Delay between repeated requests", cxxopts::value<int>()->default_value( "0" ) )
         ( "s,subscribe", "Subscribe", cxxopts::value<bool>()->default_value( "false" ) )
+        ( "max_messages", "When subscribing, max number of messages to receive before exiting", cxxopts::value<int>()->default_value( "-1" ) )
         ( "h,help", "Print usage" )
 
         // Log levels
@@ -126,6 +127,10 @@ bool parseOptions(int argc, char* argv[], Args& args)
         if (result.count("delay") > 0)
         {
             args.delay = result["delay"].as<int>();
+        }
+        if (result.count("max_messages") > 0)
+        {
+            args.maxMessages = result["max_messages"].as<int>();
         }
 
         // Publish

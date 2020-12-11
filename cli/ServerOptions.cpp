@@ -1,10 +1,10 @@
 #include "ServerOptions.h"
 
 #include <cxxopts.hpp>
+#include <fstream>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 #include <unistd.h>
-#include <fstream>
 
 void setupLogging(const Args& args)
 {
@@ -83,14 +83,14 @@ bool parseOptions(int argc, char* argv[], Args& args)
         args.host = result["host"].as<std::string>();
         args.port = result["port"].as<int>();
 
-        if ( result.count( "pidfile" ) )
+        if (result.count("pidfile"))
         {
             auto pidfile = result["pidfile"].as<std::string>();
             unlink(pidfile.c_str());
 
             std::ofstream file;
             file.open(pidfile);
-            if ( !file.is_open() )
+            if (!file.is_open())
             {
                 std::cerr << "Cannot open " << pidfile << " in write mode" << std::endl;
                 return false;
