@@ -2,6 +2,7 @@ all: build
 
 full_build:
 	(cd build && \
+		conan install --build=spdlog ..
 		cmake -GNinja -DCMAKE_BUILD_TYPE=Debug \
 			-DCXXOPTS_BUILD_EXAMPLES=OFF \
 			-DBUILD_TESTING=OFF \
