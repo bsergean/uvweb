@@ -1,0 +1,9 @@
+[requires]
+uvw/2.8.0
+spdlog/1.8.2
+libdeflate/1.7
+nlohmann_json/3.9.1
+cxxopts/2.2.1
+
+[generators]
+cmake
